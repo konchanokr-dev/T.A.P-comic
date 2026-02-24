@@ -7,7 +7,6 @@ import '../../core/app_settings.dart';
 import '../../core/app_setting_scope.dart';
 import 'package:tapcomic/data/models/page_model.dart';
 import 'package:tapcomic/data/repos/history_repo.dart';
-import 'package:tapcomic/data/repos/episode_repo.dart';
 import 'package:tapcomic/data/repos/page_repo.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -39,7 +38,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   int _pageIndex = 0;
 
   final _historyRepo = HistoryRepo();
-  final _episodeRepo = EpisodeRepo();
   final _pageRepo = PageRepo();
   final _commentRepo = CommentRepo();
    bool _isLoading = false;

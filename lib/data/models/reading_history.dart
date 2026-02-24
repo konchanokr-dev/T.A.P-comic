@@ -1,13 +1,11 @@
-// lib/data/models/reading_history.dart
 class ReadingHistory {
   final int? id;
-  final String? userUuid;     // ← เพิ่ม (server ใช้ uuid)
+  final String? userUuid;     
   final String comicId;
   final int episodeId;
   final int pageNo;
   final String lastReadAt;
 
-  // join data (แสดงใน UI)
   String? comicTitle;
    String? coverPath;
   final int? episodeNo;
@@ -28,7 +26,6 @@ class ReadingHistory {
     this.totalPages,
   });
 
-  // รับจาก server API
 factory ReadingHistory.fromApi(Map<String, dynamic> map) {
   return ReadingHistory(
     id: (map['id'] as num?)?.toInt(),
@@ -36,10 +33,8 @@ factory ReadingHistory.fromApi(Map<String, dynamic> map) {
 
     comicId: map['comicId']! as String? ?? '',
 
-    // 🔥 backend ใช้ chapterId ไม่ใช่ episodeId
     episodeId: (map['chapterId'] as num?)?.toInt() ?? 0,
 
-    // 🔥 backend ใช้ pageNumber ไม่ใช่ pageNo
     pageNo: (map['pageNumber'] as num?)?.toInt() ?? 0,
 
     lastReadAt: map['lastReadAt'] as String? ?? '',
@@ -51,7 +46,6 @@ factory ReadingHistory.fromApi(Map<String, dynamic> map) {
     totalPages: (map['totalPages'] as num?)?.toInt(),
   );
 }
-  // ยังคงไว้สำหรับ local SQLite (ถ้ายังใช้อยู่)
   factory ReadingHistory.fromMap(Map<String, dynamic> map) {
     return ReadingHistory(
       id: map['id'] as int?,

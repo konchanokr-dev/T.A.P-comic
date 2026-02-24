@@ -153,7 +153,7 @@ class _HomeState extends State<Home> {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.network(
-                c.url,   // 🔥 ตอนนี้ต้องเป็น url จาก server
+                c.url,   
                 height: 180,
                 width: double.infinity,
                 fit: BoxFit.cover,

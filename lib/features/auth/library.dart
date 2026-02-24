@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:tapcomic/data/api/api_service.dart';
-import 'package:tapcomic/data/models/comic.dart';
 import 'package:tapcomic/data/models/favorite_comic.dart';
 import 'package:tapcomic/data/repos/favorite_repo.dart';
 import 'comic_detail_page.dart';

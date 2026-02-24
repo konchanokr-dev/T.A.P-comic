@@ -8,7 +8,6 @@ Future<List<PageModel>> fetchPages({
   required String uuid,
   required int chapter,
 }) async {
-  // 1. โหลดข้อมูล Chapter ครั้งเดียวเพื่อเอา pageCount
   final chapterRes = await http.get(Uri.parse('$baseUrl/comics/$uuid/chapter'));
   if (chapterRes.statusCode != 200) throw Exception("Failed");
 
@@ -16,17 +15,14 @@ Future<List<PageModel>> fetchPages({
   final chapterInfo = chapterData.firstWhere((c) => c['count'] == chapter);
   final int pageCount = chapterInfo['pageCount'];
 
-  // 2. สร้างรายการของ Future (ยังไม่เริ่มโหลดทันที)
   List<Future<http.Response>> requests = [];
   for (int i = 1; i <= pageCount; i++) {
     requests.add(http.get(Uri.parse('$baseUrl/comics/$uuid/$chapter/$i')));
   }
 
-  // 3. ยิงกระสุนออกไปพร้อมกัน! (Concurrent)
-  // วิธีนี้จะเร็วกว่าเดิมหลายเท่าตัว
+
   final responses = await Future.wait(requests);
 
-  // 4. แปลงข้อมูลกลับเป็น Model
   List<PageModel> pages = [];
   for (var res in responses) {
     if (res.statusCode == 200) {
@@ -37,7 +33,6 @@ Future<List<PageModel>> fetchPages({
   return pages;
 }
 
-  /// โหลดแค่หน้าแรก
   Future<List<PageModel>> fetchFirstPage({
     required String uuid,
     required int chapter,

@@ -2,14 +2,19 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tapcomic/data/api/api_service.dart';
+import 'package:tapcomic/data/repos/comic_repo.dart';
 import '../models/reading_history.dart';
 class HistoryRepo {
 
-  Future<String?> _getCurrentUserUuid() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('userUuid');
-  }
-
+Future<String?> _getCurrentUserUuid() async {
+  final prefs = await SharedPreferences.getInstance();
+  
+  // ✅ return userUuid ไม่ใช่ token
+  final userUuid = prefs.getString("userUuid");
+  
+  print("📋 userUuid = $userUuid"); // เช็คค่า
+  return userUuid;
+}
  Future<void> saveProgress({
   required String comicUuid,
   required int episodeId,
@@ -20,16 +25,15 @@ class HistoryRepo {
     throw Exception("User not logged in");
   }
 
-  final res = await http.post(
-    Uri.parse('${ApiService.baseUrl}/history/record'),
-    headers: {'Content-Type': 'application/json'},
-    body: jsonEncode({
+  final res = await ApiService.post(
+    '/history/record',
+    {
       "userUuid": userUuid,      
-      "comicUuid": comicUuid,
       "chapterId": episodeId,    
       "pageNumber": pageNo,
-    }),
+    },
   );
+  
 
   if (res.statusCode != 200) {
     throw Exception('Failed to save history: ${res.body}');
@@ -39,9 +43,8 @@ class HistoryRepo {
     final userUuid = await _getCurrentUserUuid();
     if (userUuid == null) return [];
 
-    final res = await http.get(
-      Uri.parse('${ApiService.baseUrl}/history/$userUuid'),
-    );
+   final res = await ApiService.get('/history/$userUuid');
+
 
     if (res.statusCode != 200) {
       throw Exception('Failed to load history: ${res.body}');
@@ -58,9 +61,8 @@ class HistoryRepo {
     final userUuid = await _getCurrentUserUuid();
     if (userUuid == null) return null;
 
-    final res = await http.get(
-      Uri.parse('${ApiService.baseUrl}/history/$userUuid'),
-    );
+      final res = await ApiService.get('/history/$userUuid');
+
 
     if (res.statusCode != 200) return null;
 
@@ -75,28 +77,38 @@ class HistoryRepo {
       return null;
     }
   }
+Future<ReadingHistory?> getComicProgress(String comicUuid) async {
+  final userUuid = await _getCurrentUserUuid();
+  if (userUuid == null) return null;
 
-  Future<ReadingHistory?> getComicProgress(String uuid) async {
-    final userUuid = await _getCurrentUserUuid();
-    if (userUuid == null) return null;
-
-    final res = await http.get(
-      Uri.parse('${ApiService.baseUrl}/history/$userUuid'),
-    );
+  try {
+    final res = await ApiService.get('/history/$userUuid');
 
     if (res.statusCode != 200) return null;
 
     final List data = jsonDecode(res.body);
+    
+    // DEBUG: พิมพ์ดูว่า Server ส่งอะไรมากันแน่
+    print("📡 ข้อมูลจาก Server: $data");
 
-    try {
-      final matches = data.where((e) => e['comicUuid'] == uuid).toList();
-      if (matches.isEmpty) return null;
-      return ReadingHistory.fromApi(matches.first);
-    } catch (_) {
+    // แก้ไขการเปรียบเทียบ โดยใช้ .toString() ป้องกันเรื่อง Type Mismatch
+    final match = data.firstWhere(
+      (e) => e['comicUuid'].toString() == comicUuid.toString(),
+      orElse: () => null,
+    );
+    
+    if (match != null) {
+      print("🎯 เจอข้อมูลแล้ว! หน้าที่บันทึกไว้คือ: ${match['pageNumber']}");
+      return ReadingHistory.fromApi(match);
+    } else {
+      print("🔎 ไม่พบประวัติของ Comic ID: $comicUuid");
       return null;
     }
+  } catch (e) {
+    print("❌ Error ใน getComicProgress: $e");
+    return null;
   }
-
+}
   Future<void> clearAllHistory() async {
 
     throw UnimplementedError('Server ยังไม่มี DELETE /api/history endpoint');
@@ -104,9 +116,9 @@ class HistoryRepo {
   final userUuid = await _getCurrentUserUuid();
   if (userUuid == null) return [];
 
-  final historyRes = await http.get(
-    Uri.parse('${ApiService.baseUrl}/history/$userUuid'),
-  );
+    final historyRes = await ApiService.get('/history/$userUuid');
+
+
 
   if (historyRes.statusCode != 200) {
     throw Exception('Failed to load history');
@@ -116,17 +128,15 @@ class HistoryRepo {
   final histories =
       historyData.map((e) => ReadingHistory.fromApi(e)).take(limit).toList();
 
-  for (var h in histories) {
-    final comicRes = await http.get(
-      Uri.parse('${ApiService.baseUrl}/comics/${h.comicId}'),
-    );
+ await Future.wait(histories.map((h) async {
+  final comicRes = await ApiService.get('/comics/${h.comicUuid}');
 
-    if (comicRes.statusCode == 200) {
-      final comic = jsonDecode(comicRes.body);
-      h.comicTitle = comic['title'];
-      h.coverPath = comic['coverUrl'];
-    }
+  if (comicRes.statusCode == 200) {
+    final comic = jsonDecode(comicRes.body);
+    h.comicTitle = comic['title'];
+    h.coverPath = comic['coverUrl'];
   }
+}));
 
   return histories;
 }

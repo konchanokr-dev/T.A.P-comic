@@ -54,7 +54,7 @@ Future<void> _handleRegister() async {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Color(0xFF171717),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(

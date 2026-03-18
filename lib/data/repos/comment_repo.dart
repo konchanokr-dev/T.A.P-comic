@@ -1,123 +1,61 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:shared_preferences/shared_preferences.dart';  
-import '../models/comment.dart';
-import '../db/app_db2.dart';
-
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:tapcomic/data/api/api_service.dart';
+import 'package:tapcomic/data/models/comment.dart';
 class CommentRepo {
-  Future<int?> _getCurrentUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('userId');
-  }
-  
-  Future<List<Comment>> getComments(int episodeId) async {
-    final db = await AppDb.database;
+  final String baseUrl = ApiService.baseUrl;
 
-    final result = await db.rawQuery('''
-      SELECT 
-        c.*,
-        u.username
-      FROM comments c
-      LEFT JOIN users u ON u.id = c.user_id
-      WHERE c.episode_id = ?
-      ORDER BY c.created_at DESC
-    ''', [episodeId]);
+  Future<List<CommentModel>> getChapterComments(int chapterId) async {
 
-    return result.map((e) => Comment.fromMap(e)).toList();
-  }
+   final res = await ApiService.get("/comments/chapter/$chapterId");
 
- 
-  Future<void> insertComment(Comment comment) async {
-    final userId = await _getCurrentUserId();
-    if (userId == null) throw Exception('User not logged in');
-    
-    final db = await AppDb.database;
 
-    await db.insert(
-      "comments",
-      {
-        "comic_id": comment.comicId,
-        "episode_id": comment.episodeId,
-        "user_id": userId,              
-        "message": comment.message,
-        "like_count": comment.likeCount,
-        "dislike_count": comment.dislikeCount,
-        "created_at": comment.createdAt,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
+    final List data = jsonDecode(res.body);
 
- 
-  Future<void> deleteComment(int commentId) async {
-    final userId = await _getCurrentUserId();
-    if (userId == null) throw Exception('User not logged in');
-    
-    final db = await AppDb.database;
-    
-    await db.delete(
-      "comments",
-      where: "id = ? AND user_id = ?", 
-      whereArgs: [commentId, userId],
-    );
-  }
-  
-  Future<void> updateComment(int commentId, String newMessage) async {
-    final userId = await _getCurrentUserId();
-    if (userId == null) throw Exception('User not logged in');
-    
-    final db = await AppDb.database;
-    
-    await db.update(
-      "comments",
-      {"message": newMessage},
-      where: "id = ? AND user_id = ?",  
-      whereArgs: [commentId, userId],
-    );
-  }
+    return data.map((e) => CommentModel.fromJson(e)).toList();
+  }Future<void> addComment({
+  required String userUuid,
+  required int comicId,
+  required int chapterId,
+  required String text,
+}) async {
 
-  Future<void> increaseLike(int id) async {
-    final db = await AppDb.database;
-    await db.rawUpdate(
-      "UPDATE comments SET like_count = like_count + 1 WHERE id = ?",
-      [id],
-    );
-  }
+  final body = {
+    "userUuid": userUuid,
+    "comicId": comicId,
+    "chapterId": chapterId,
+    "text": text,
+  };
 
-  Future<void> decreaseLike(int id) async {
-    final db = await AppDb.database;
-    await db.rawUpdate(
-      """
-      UPDATE comments
-      SET like_count = CASE
-        WHEN like_count > 0 THEN like_count - 1
-        ELSE 0
-      END
-      WHERE id = ?
-      """,
-      [id],
-    );
-  }
+  final res = await ApiService.post(
+    "/comments/add/comment",
+    body,
+  );
 
-  Future<void> increaseDislike(int id) async {
-    final db = await AppDb.database;
-    await db.rawUpdate(
-      "UPDATE comments SET dislike_count = dislike_count + 1 WHERE id = ?",
-      [id],
-    );
-  }
+  print("STATUS: ${res.statusCode}");
+  print("RESPONSE: ${res.body}");
 
-  Future<void> decreaseDislike(int id) async {
-    final db = await AppDb.database;
-    await db.rawUpdate(
-      """
-      UPDATE comments
-      SET dislike_count = CASE
-        WHEN dislike_count > 0 THEN dislike_count - 1
-        ELSE 0
-      END
-      WHERE id = ?
-      """,
-      [id],
-    );
+  if (res.statusCode != 200) {
+    throw Exception("Failed to send comment");
   }
+}Future<void> addReply({
+  required String userUuid,
+  required int commentId,
+  required String text,
+}) async {
+
+  final res = await ApiService.post(
+    "/comments/add/reply",
+    {
+      "uuid": userUuid,
+      "commentId": commentId,
+      "text": text,
+    },
+  );
+
+  if (res.statusCode != 200) {
+    throw Exception("Failed to send reply");
+  }
+}
+
 }

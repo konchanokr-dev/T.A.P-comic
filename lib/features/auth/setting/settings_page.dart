@@ -23,11 +23,11 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Color(0xFF171717),
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Color(0xFF171717),
         foregroundColor: Colors.white,
-        title: const Text('Profile & Settings'),
+        title: Text('Profile & Settings' ,style: TextStyle(fontWeight: FontWeight.bold ,fontSize: 30,),textAlign: TextAlign.center),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

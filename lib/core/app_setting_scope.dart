@@ -5,8 +5,8 @@ class AppSettingsScope extends InheritedNotifier<AppSettings> {
   const AppSettingsScope({
     super.key,
     required AppSettings settings,
-    required Widget child,
-  }) : super(notifier: settings, child: child);
+    required super.child,
+  }) : super(notifier: settings);
 
   static AppSettings of(BuildContext context) {
     final scope =

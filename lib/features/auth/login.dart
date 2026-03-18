@@ -27,7 +27,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Color(0xFF171717),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -160,28 +160,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                       ),
-                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color.fromARGB(255, 52, 52, 52),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                        ),
-                        onPressed: () {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const MainShell()),
-    );
-  },
-                        child: const Text(
-                          'skip login for test',
-                          style: TextStyle(
-                            color: Color.fromARGB(255, 221, 221, 221),
-                            fontSize: 24,
-                          ),
-                        ),
-                      ),
+                      
                     ],
                   ),
                 ),

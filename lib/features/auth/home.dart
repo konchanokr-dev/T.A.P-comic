@@ -1,6 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:tapcomic/data/models/comic.dart';
 import 'package:tapcomic/data/repos/comic_repo.dart';
+import 'package:tapcomic/features/auth/auth_service.dart';
 import 'comic_detail_page.dart';
 
 class Home extends StatefulWidget {
@@ -18,13 +20,14 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+    final token = AuthService.token;
     newChaptersFuture = repo.fetchNewChapters(limit: 10);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Color(0xFF171717),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -151,22 +154,24 @@ class _HomeState extends State<Home> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                c.url,   
-                height: 180,
+              child: CachedNetworkImage(
+                 imageUrl: c.url,
+  httpHeaders: AuthService.token == null
+      ? null
+      : {
+          "Authorization": "Bearer ${AuthService.token}",
+        },
+                height: 200,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 180,
-                    color: Colors.grey[800],
-                    child: const Icon(
-                      Icons.broken_image,
-                      color: Colors.white,
-                    ),
-                  );
-                },
+               errorWidget: (_, __, ___) => Container(
+  height: 200,
+  color: Colors.grey[800],
+  child: const Icon(
+    Icons.broken_image,
+    color: Colors.white,
+  ),
+),
               ),
             ),
             const SizedBox(height: 8),
@@ -181,17 +186,19 @@ class _HomeState extends State<Home> {
                       color: Color(0xFF959595),
                       fontSize: 12,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     c.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: const TextStyle( 
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),

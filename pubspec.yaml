@@ -34,39 +34,7 @@ flutter:
     # Icons
     - assets/icon/fakelogo.png
     
-    # JJK
-    - assets/comic/jjk/cover.jpg
-    
-    # Gantz
-    - assets/comic/gantz/cover.png
-    
-    # OPM Episode 1 (ทั้ง 23 รูป)
-    - assets/comic/opm/ep1/opm01.jpg
-    - assets/comic/opm/ep1/opm02.jpg
-    - assets/comic/opm/ep1/opm03.jpg
-    - assets/comic/opm/ep1/opm04.jpg
-    - assets/comic/opm/ep1/opm05.jpg
-    - assets/comic/opm/ep1/opm06.jpg
-    - assets/comic/opm/ep1/opm07.jpg
-    - assets/comic/opm/ep1/opm08.jpg
-    - assets/comic/opm/ep1/opm09.jpg
-    - assets/comic/opm/ep1/opm10.jpg
-    - assets/comic/opm/ep1/opm11.jpg
-    - assets/comic/opm/ep1/opm12.jpg
-    - assets/comic/opm/ep1/opm13.jpg
-    - assets/comic/opm/ep1/opm14.jpg
-    - assets/comic/opm/ep1/opm15.jpg
-    - assets/comic/opm/ep1/opm16.jpg
-    - assets/comic/opm/ep1/opm17.jpg
-    - assets/comic/opm/ep1/opm18.jpg
-    - assets/comic/opm/ep1/opm19.jpg
-    - assets/comic/opm/ep1/opm20.jpg
-    - assets/comic/opm/ep1/opm21.jpg
-    - assets/comic/opm/ep1/opm22.jpg
-    - assets/comic/opm/ep1/opm23.jpg
-    
-    # Mock
-    - assets/mock/find_all_comic_response.json
+   
 flutter_icons:
   android: true
   image_path: assets/icon/fakelogo.png

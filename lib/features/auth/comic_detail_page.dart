@@ -1,4 +1,6 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tapcomic/data/repos/comic_repo.dart';
 import 'package:tapcomic/data/repos/history_repo.dart';
 import 'comic_reader_page.dart';
@@ -16,18 +18,35 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
   final repo = ComicRepo();
   final historyRepo = HistoryRepo();
   final favoriteRepo = FavoriteRepo();
-
-  late Future<Map<String, dynamic>?> _future;
-
+String? token;
+String userUuid = "";  
+List comments = [];
+bool loadingComments = true;
+Future<Map<String, dynamic>?>? _future;
+late Future<List<dynamic>> _chapterFuture;
   bool _isFavorite = false;
   bool _loadingFavorite = false;
-
-  @override
+@override
   void initState() {
-    super.initState();
-    _future = repo.fetchComicDetailByUuId(widget.comicId);
-  }
 
+   super.initState();
+  _init();
+  }
+  Future<void> _init() async {
+  await _loadUser(); // รอ token ก่อน
+  _future = repo.fetchComicDetailByUuId(widget.comicId);
+  _chapterFuture = repo.fetchChapters(widget.comicId);
+  setState(() {});
+}
+Future<void> _loadUser() async {
+   
+  final prefs = await SharedPreferences.getInstance();
+  userUuid = prefs.getString('userUuid') ?? "";
+   token = prefs.getString("accessToken");
+  setState(() {});
+
+  print("USER UUID = $userUuid");
+}
 Future<void> _toggleFavorite(String comicUuid) async {
   if (_loadingFavorite) return;
 
@@ -35,7 +54,6 @@ Future<void> _toggleFavorite(String comicUuid) async {
 
   try {
     await favoriteRepo.toggle(comicUuid);
-
     setState(() {
       _isFavorite = !_isFavorite;
     });
@@ -50,35 +68,54 @@ Future<void> _toggleFavorite(String comicUuid) async {
   }
 }
 
-  void _openChapter({
-    required String uuid,
-    required int chapter,
-      required int totalChapters, 
+ void _openChapter({
+  required String uuid,
+  required int chapterId,
+  required int chapterNo,
+  required int totalChapters,
+  required int comicIntId,
+  required String userUuid,
+}) {
 
-  }) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ComicReaderPage(
-          uuid: uuid,             
-          episodeTitle: "Chapter $chapter",
-          episodeNo: chapter,
-          comicId: widget.comicId,
-          episodeId: chapter,
-          totalChapters: totalChapters, 
-        ),
-      ),
+  if (userUuid.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("User not loaded yet")),
     );
+    return;
   }
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ComicReaderPage(
+        uuid: uuid,
+        comicIntId: comicIntId,
+        episodeTitle: "Chapter $chapterNo",
+        episodeNo: chapterNo,   // ใช้ count
+        comicId: widget.comicId,
+        episodeId: chapterId,   // ใช้ id
+        totalChapters: totalChapters,
+        userUuid: userUuid,
+      ),
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
+    if (_future == null || _chapterFuture == null) {
+  return const Scaffold(
+    body: Center(child: CircularProgressIndicator()),
+  );
+}
     return Scaffold(
-      backgroundColor: Colors.black,
+      
+      backgroundColor: Color(0xFF171717),
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Color(0xFF171717),
         foregroundColor: Colors.white,
       ),
+      
       body: FutureBuilder<Map<String, dynamic>?>(
         future: _future,
         builder: (context, snapshot) {
@@ -93,6 +130,7 @@ Future<void> _toggleFavorite(String comicUuid) async {
           }
 
           final m = snapshot.data!;
+          
           final chapterCount = m['chapterCount'] ?? 0;
           final uuid = m['uuid'];
           final genresList = (m['genres'] as List?) ?? [];
@@ -102,12 +140,20 @@ Future<void> _toggleFavorite(String comicUuid) async {
             padding: const EdgeInsets.all(16),
             children: [
                Stack(
-                 children: [ Image.network(
-                m['coverUrl'] ?? '',
-                height: 240,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
+                 children: [ CachedNetworkImage(
+  imageUrl: "${m['coverUrl']}?w=500",
+  httpHeaders: {
+    "Authorization": "Bearer $token",
+  },
+  height: 240,
+  width: double.infinity,
+  fit: BoxFit.cover,
+  placeholder: (_, __) => Container(
+    height: 240,
+    color: Colors.grey[900],
+  ),
+  errorWidget: (_, __, ___) => const Icon(Icons.broken_image),
+),
                Positioned(
       right: 16,
       bottom: 16,
@@ -142,7 +188,7 @@ Future<void> _toggleFavorite(String comicUuid) async {
                Container(
   padding: const EdgeInsets.all(16),
   decoration: BoxDecoration(
-    color: const Color.fromARGB(137, 128, 128, 128), 
+    color: const Color(0xFF282828), 
     borderRadius: BorderRadius.circular(12),
   ),
   child: Column(
@@ -150,22 +196,27 @@ Future<void> _toggleFavorite(String comicUuid) async {
     children: [
               Text(
                 'Author: ${m['author'] ?? '-' }',
-                style: const TextStyle(color: Colors.white70),
+                
+                style: const TextStyle(color: Color.fromARGB(255, 255, 255, 255)),
               ),
                const SizedBox(height: 8),
               Text(
                 'Artist: ${m['artist']?? '-' }',
-                style: const TextStyle(color: Colors.white70),
+                style: const TextStyle(color: Color.fromARGB(255, 255, 255, 255)),
               ),
               const SizedBox(height: 8),
               Text(
                 'Genres: ${genresText.isEmpty ? '-' : genresText}',
-                style: const TextStyle(color: Colors.white70),
+                style: const TextStyle(color: Color.fromARGB(255, 255, 255, 255)),
               ),
     ],
   ),
-  ),
-              const SizedBox(height: 16),
+  ),    const SizedBox(height: 16),
+  Text(
+                'Synopsis:',
+                style: const TextStyle(color: Color.fromARGB(255, 255, 255, 255),fontWeight: FontWeight.bold),
+              ),
+          
               Text(
                 m['description'] ?? '',
                 style: const TextStyle(color: Colors.white),
@@ -181,35 +232,74 @@ Future<void> _toggleFavorite(String comicUuid) async {
                 ),
               ),
               const SizedBox(height: 8),
+Container(
+  decoration: BoxDecoration(
+    color: const Color(0xFF1E1E1E), // สีพื้นหลัง
+    borderRadius: BorderRadius.circular(16), // มุมโค้ง
+  ),
+  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+  child: FutureBuilder<List<dynamic>>(
+  future: _chapterFuture,
+  builder: (context, snapshot) {
 
-              ...List.generate(chapterCount, (index) {
-                final chapter = index + 1;
+    if (!snapshot.hasData) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-                return InkWell(
-                  onTap: () => _openChapter(
-                    uuid: uuid,
-                    chapter: chapter,
-                      totalChapters: chapterCount, 
+    final chapters = snapshot.data!;
 
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: Colors.white12),
-                      ),
-                    ),
-                    child: Text(
-                      'Chapter $chapter',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                );
-              }),
-            ],
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: chapters.length,
+      itemBuilder: (context, index) {
+
+        final ch = chapters[index];
+
+        final chapterId = ch['id'];      // 10
+        final chapterNo = ch['count'];   // 1
+
+        return InkWell(
+          onTap: () => _openChapter(
+  uuid: uuid,
+  chapterId: chapterId,
+  chapterNo: chapterNo,
+  totalChapters: chapters.length,
+  comicIntId: m['id'],
+  userUuid: userUuid,
+),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Colors.white12),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Chapter',
+                  style: TextStyle(color: Colors.white),
+                ),
+                Text(
+                  '$chapterNo',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  },
+)
+)
+            ]
           );
         },
       ),
     );
   }
+  
 }

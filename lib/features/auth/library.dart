@@ -1,7 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:tapcomic/data/api/api_service.dart';
 import 'package:tapcomic/data/models/favorite_comic.dart';
 import 'package:tapcomic/data/repos/favorite_repo.dart';
+import 'package:tapcomic/features/auth/auth_service.dart';
 import 'comic_detail_page.dart';
 
 class Library extends StatefulWidget {
@@ -30,9 +32,9 @@ class _LibraryState extends State<Library> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Color(0xFF171717),
     appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Color(0xFF171717),
         foregroundColor: Colors.white,
         centerTitle: true, 
 
@@ -119,25 +121,21 @@ class _LibraryState extends State<Library> {
                       child: Stack(
                         children: [
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
                     
-                            child: Image.network(
-  fav.url.startsWith('http')
-      ? fav.url
-      : '${ApiService.baseUrl}${fav.url}',
+                            child:  CachedNetworkImage(
+                 imageUrl: fav.url,
+  httpHeaders: AuthService.token == null
+      ? null
+      : {
+          "Authorization": "Bearer ${AuthService.token}",
+        },
   width: double.infinity,
   height: double.infinity,
   fit: BoxFit.cover,
-  errorBuilder: (_, __, ___) {
+  errorWidget: (_, __, ___) {
     return Image.asset(
       'assets/icon/fakelogo.png',
       fit: BoxFit.cover,
-    );
-  },
-  loadingBuilder: (context, child, progress) {
-    if (progress == null) return child;
-    return const Center(
-      child: CircularProgressIndicator(strokeWidth: 2),
     );
   },
 ), 

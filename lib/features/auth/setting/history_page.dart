@@ -1,6 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:tapcomic/data/repos/history_repo.dart';
 import 'package:tapcomic/data/models/reading_history.dart';
+import 'package:tapcomic/features/auth/auth_service.dart';
 import 'package:tapcomic/features/auth/comic_detail_page.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -23,9 +25,9 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Color(0xFF171717),
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Color(0xFF171717),
         foregroundColor: Colors.white,
         title: const Text('Reading history'),
         actions: [
@@ -90,6 +92,7 @@ class _HistoryPageState extends State<HistoryPage> {
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: histories.length,
+            
             itemBuilder: (context, index) {
               final h = histories[index];
               
@@ -98,7 +101,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => ComicDetailPage(comicId: h.comicId),
+                      builder: (_) => ComicDetailPage(comicId: h.comicUuid),
                     ),
                   );
                 },
@@ -107,31 +110,37 @@ class _HistoryPageState extends State<HistoryPage> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1E1E1E),
-                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: h.coverPath != null && h.coverPath!.startsWith('http')
-    ? Image.network(
-        h.coverPath!,
-        width: 60,
-        height: 80,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) =>
-            Image.asset('assets/icon/fakelogo.png',
+                     ClipRRect(
+  child: h.coverPath != null && h.coverPath!.startsWith('http')
+      ? CachedNetworkImage(
+          imageUrl: h.coverPath!,
+           httpHeaders: AuthService.token == null
+      ? null
+      : {
+          "Authorization": "Bearer ${AuthService.token}",
+        },
+          width: 80,
+          height: 120,
+          fit: BoxFit.cover,
+          placeholder: (context, url) =>
+              const SizedBox(
                 width: 60,
                 height: 80,
-                fit: BoxFit.cover),
-      )
-    : Image.asset(
-        'assets/icon/fakelogo.png',
-        width: 60,
-        height: 80,
-        fit: BoxFit.cover,
-      ),),
-                      
+                child: Center(child: CircularProgressIndicator()),
+              ),
+          errorWidget: (context, url, error) =>
+              const Icon(Icons.error),
+        )
+      : Image.asset(
+          'assets/icon/fakelogo.png',
+          width: 60,
+          height: 80,
+          fit: BoxFit.cover,
+        ),
+),
                       const SizedBox(width: 12),
                       
                       Expanded(
@@ -152,7 +161,7 @@ class _HistoryPageState extends State<HistoryPage> {
                             const SizedBox(height: 4),
                             
                             Text(
-                              'EP.${h.episodeNo} ',
+                              'EP.${h.chapterId} ',
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 14,

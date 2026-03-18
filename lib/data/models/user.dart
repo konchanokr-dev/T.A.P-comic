@@ -28,6 +28,8 @@ class User {
       password: map['password'] as String,
     );
   }
+
+  static fromJson(json) {}
 }
 
    

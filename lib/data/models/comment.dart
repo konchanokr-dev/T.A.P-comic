@@ -1,51 +1,56 @@
-class Comment {
-  final int? id;
-  final int comicId;
-  final int episodeId;
-  final String message;
-  final int likeCount;
-    final int userId;           
-  final int dislikeCount;
-  final String createdAt;
-  final String? username;
+import 'package:tapcomic/data/models/userm.dart';
 
-  const Comment({
-     this.id,
-     required this.userId,
-    required this.comicId,
-    required this.episodeId,
-    required this.message,
-    required this.likeCount,
-    required this.dislikeCount,
-    required this.createdAt,
-        this.username,            
-
+class CommentModel {
+  final int id;
+  final String text;
+  final UserModel user;
+final List<ReplyModel> replies; 
+  CommentModel({
+    required this.id,
+    required this.text,
+    required this.user,
+    required this.replies,
   });
 
-  factory Comment.fromMap(Map<String, dynamic> map) {
-    return Comment(
-      id: map['id'] as int,
-      userId: map['user_id'] as int,
-      comicId: map['comic_id'] as int,
-      episodeId: map['episode_id'] as int,
-      message: map['message'] as String,
-      likeCount: map['like_count'] as int,
-      dislikeCount: map['dislike_count'] as int,
-      createdAt: map['created_at'] as String,
-      username: map['username'] as String,
+  factory CommentModel.fromJson(Map<String, dynamic> json) {
+    return CommentModel(
+      id: json["id"],
+      text: json["text"],
+      user: UserModel.fromJson(json["user"]),
+      // ✅ ใส่ List(...) ครอบเพื่อให้ mutable
+      replies: List<ReplyModel>.from(
+        (json["replies"] as List).map((e) => ReplyModel.fromJson(e)),
+      ),
     );
   }
+  }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'comic_id': comicId,
-      'episode_id': episodeId,
-      'user_id': userId,  
-      'message': message,
-      'like_count': likeCount,
-      'dislike_count': dislikeCount,
-      'created_at': createdAt,
-    };
+  
+
+class ReplyModel {
+
+  final int id;
+  final String text;
+  final UserModel user;
+  final String createAt;
+  final int mainCommentId;
+
+  ReplyModel({
+    required this.id,
+    required this.text,
+    required this.user,
+    required this.createAt,
+    required this.mainCommentId,
+  });
+
+  factory ReplyModel.fromJson(Map<String,dynamic> json){
+    return ReplyModel(
+      id: json["id"],
+      text: json["text"],
+      user: UserModel.fromJson(json["user"]),
+      createAt: json["createAt"],
+      mainCommentId: json["mainCommentId"],
+    );
   }
 }
+

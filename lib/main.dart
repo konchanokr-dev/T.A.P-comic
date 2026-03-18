@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tapcomic/data/db/app_db2.dart';
+import 'package:tapcomic/features/auth/auth_service.dart';
 import 'core/app_settings.dart';
 import 'core/app_setting_scope.dart';
 import 'features/auth/main_shell.dart';
@@ -12,7 +12,7 @@ PaintingBinding.instance.imageCache.maximumSize = 200;
 PaintingBinding.instance.imageCache.maximumSizeBytes = 1024 * 1024 * 200;
   final settings = AppSettings();
        await settings.loadUserSettings();  
-
+await AuthService.init();
   runApp(MyApp(settings: settings));
 
 }
@@ -25,7 +25,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppSettingsScope(
       settings: settings,
-      child: const MaterialApp(
+      child:  MaterialApp(
+         theme: ThemeData(
+         scaffoldBackgroundColor: Color(0xFF171717),
+           ),
         debugShowCheckedModeBanner: false,
         home: AuthGate(),
       ),

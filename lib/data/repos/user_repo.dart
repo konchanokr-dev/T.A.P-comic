@@ -39,10 +39,10 @@ class UserRepo {
     );
   }
 
-
 Future<User?> login(String name, String password) async {
+
   final res = await http.post(
-    Uri.parse('${ApiService.baseUrl}/users/login'),
+    Uri.parse('${ApiService.baseUrl}/auth/login'),
     headers: {'Content-Type': 'application/json'},
     body: jsonEncode({
       'name': name,
@@ -57,25 +57,31 @@ Future<User?> login(String name, String password) async {
 
   final data = jsonDecode(res.body);
 
-  if (data['Status:'] == true) {
-    final users = await _fetchAllUsers();
-    final user = users.firstWhere((u) => u.name == name);
-    await _saveSession(user);
-    return user;
-  }
+  final prefs = await SharedPreferences.getInstance();
 
-  return null;
+  // เก็บ token
+  await prefs.setString("accessToken", data["accessToken"]);
+  await prefs.setString("refreshToken", data["refreshToken"]);
+
+  // โค้ดเก่ายังใช้เหมือนเดิม
+  final users = await _fetchAllUsers();
+  final user = users.firstWhere((u) => u.name == name);
+
+  await _saveSession(user);
+
+  return user;
 }
 
-  Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('userUuid');
-    await prefs.remove('userName');
-    await prefs.remove('userId');
-   
-  }
+Future<void> logout() async {
+  final prefs = await SharedPreferences.getInstance();
 
-  
+  await prefs.remove('userUuid');
+  await prefs.remove('userName');
+  await prefs.remove('userId');
+
+  await prefs.remove('accessToken');
+  await prefs.remove('refreshToken');
+}
   Future<List<User>> _fetchAllUsers() async {
     final res = await http.get(
       Uri.parse('${ApiService.baseUrl}/users'),
@@ -100,5 +106,27 @@ Future<User?> login(String name, String password) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('pw_$uuid', passwordHash); 
   }
+Future<List<User>> searchUser(String keyword) async {
+  final res = await http.post(
+    Uri.parse('${ApiService.baseUrl}/users/search?page=0'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({
+      'keyword': keyword,
+    }),
+  );
+
+  print("STATUS: ${res.statusCode}");
+  print("BODY: ${res.body}");
+
+  if (res.statusCode != 200) {
+    throw Exception("User search failed");
+  }
+
+  final data = jsonDecode(res.body);
+
+  List list = data["content"];
+
+  return list.map((e) => User.fromApi(e)).toList();
+}
 }
   

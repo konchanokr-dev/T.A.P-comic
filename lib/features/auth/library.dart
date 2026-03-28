@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:tapcomic/data/api/api_service.dart';
 import 'package:tapcomic/data/models/favorite_comic.dart';
 import 'package:tapcomic/data/repos/favorite_repo.dart';
 import 'package:tapcomic/features/auth/auth_service.dart';
@@ -23,24 +22,22 @@ class _LibraryState extends State<Library> {
     _loadFavorites();
   }
 
-  void _loadFavorites() {
-    setState(() {
-      _future = favoriteRepo.getAll();
-    });
-  }
-
+ void _loadFavorites() {
+  _future = favoriteRepo.getAll(); // assign ก่อน
+  setState(() {}); // แค่ trigger rebuild
+}
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Color(0xFF171717),
-    appBar: AppBar(
-        backgroundColor: Color(0xFF171717),
-        foregroundColor: Colors.white,
-        centerTitle: true, 
-
-        title: Text('My Library',style: TextStyle(fontWeight: FontWeight.bold ,                    fontSize: 30,
-) ),
-    
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        centerTitle: true,
+        title: Text('My Library',
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 30,
+                color: theme.colorScheme.onSurface)),
       ),
       body: FutureBuilder<List<FavoriteComic>>(
         future: _future,
@@ -48,14 +45,9 @@ class _LibraryState extends State<Library> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
           if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Error: ${snapshot.error}',
-                style: const TextStyle(color: Colors.redAccent),
-              ),
-            );
+            return Center(child: Text('Error: ${snapshot.error}',
+                style: const TextStyle(color: Colors.redAccent)));
           }
 
           final favorites = snapshot.data ?? [];
@@ -65,28 +57,19 @@ class _LibraryState extends State<Library> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.star_border,
-                    size: 80,
-                    color: Colors.white24,
-                  ),
+                  Icon(Icons.star_border, size: 80,
+                      color: theme.colorScheme.onSurface.withOpacity(0.2)),
                   const SizedBox(height: 16),
-                  const Text(
-                    'you dont have bookmark comic',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 18,
-                    ),
-                  ),
+                  Text('you dont have bookmark comic',
+                      style: TextStyle(
+                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          fontSize: 18)),
                   const SizedBox(height: 8),
-                  const Text(
-                    'click star icon on comic to add to Library',
-                    style: TextStyle(
-                      color: Colors.white38,
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
+                  Text('click star icon on comic to add to Library',
+                      style: TextStyle(
+                          color: theme.colorScheme.onSurface.withOpacity(0.4),
+                          fontSize: 14),
+                      textAlign: TextAlign.center),
                 ],
               ),
             );
@@ -95,8 +78,8 @@ class _LibraryState extends State<Library> {
           return GridView.builder(
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, 
-              childAspectRatio: 0.6, 
+              crossAxisCount: 3,
+              childAspectRatio: 0.6,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
@@ -105,13 +88,8 @@ class _LibraryState extends State<Library> {
               final fav = favorites[index];
               return InkWell(
                 onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ComicDetailPage(comicId: fav.uuid ),
-                    ),
-                  );
-                  
+                  await Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => ComicDetailPage(comicId: fav.uuid)));
                   _loadFavorites();
                 },
                 child: Column(
@@ -121,61 +99,37 @@ class _LibraryState extends State<Library> {
                       child: Stack(
                         children: [
                           ClipRRect(
-                    
-                            child:  CachedNetworkImage(
-                 imageUrl: fav.url,
-  httpHeaders: AuthService.token == null
-      ? null
-      : {
-          "Authorization": "Bearer ${AuthService.token}",
-        },
-  width: double.infinity,
-  height: double.infinity,
-  fit: BoxFit.cover,
-  errorWidget: (_, __, ___) {
-    return Image.asset(
-      'assets/icon/fakelogo.png',
-      fit: BoxFit.cover,
-    );
-  },
-), 
+                            child: CachedNetworkImage(
+                              imageUrl: fav.url,
+                              httpHeaders: AuthService.token == null
+                                  ? null : {"Authorization": "Bearer ${AuthService.token}"},
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) =>
+                                  Image.asset('assets/icon/fakelogo.png', fit: BoxFit.cover),
+                            ),
                           ),
-                          
                           Positioned(
-                            top: 4,
-                            right: 4,
+                            top: 4, right: 4,
                             child: Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.star,
-                                color: Colors.amber,
-                                size: 16,
-                              ),
+                                  color: Colors.black.withOpacity(0.6),
+                                  shape: BoxShape.circle),
+                              child: const Icon(Icons.star, color: Colors.amber, size: 16),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    
                     const SizedBox(height: 8),
-                    
-                    Text(
-                      fav.title ,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    
+                    Text(fav.title,
+                        style: TextStyle(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 14, fontWeight: FontWeight.w600),
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
-                    
                   ],
                 ),
               );

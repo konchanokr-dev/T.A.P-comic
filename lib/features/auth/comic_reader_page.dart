@@ -13,6 +13,8 @@ import 'package:tapcomic/data/repos/history_repo.dart';
 import 'package:tapcomic/data/repos/page_repo.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tapcomic/features/auth/page_comment_sheet.dart';
+
 class ComicReaderPage extends StatefulWidget {
   final String uuid;
   final String episodeTitle;
@@ -280,6 +282,17 @@ Widget build(BuildContext context) {
           right: 0,
           child: _bottomMenu(context),
         ),
+        // Stack children เพิ่มต่อจาก Bottom Menu
+Positioned(
+  right: 16,
+  bottom: _showMenu ? 72 : 16, // ขยับขึ้นเมื่อ menu โชว์
+  child: FloatingActionButton(
+    mini: true,
+    backgroundColor: Colors.black87,
+    onPressed: _openPageComments,
+    child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+  ),
+),
       ],
     ),
   );
@@ -874,7 +887,7 @@ Future<void> _sendComment() async {
   if (_commentController.text.trim().isEmpty) return;
 
   try {
-    await _commentRepo.addComment(
+    await _commentRepo.addChapterComment(
       userUuid: widget.userUuid,
       comicId: widget.comicIntId,
       chapterId: widget.episodeId,
@@ -928,4 +941,27 @@ void _onPageChanged(int index) {
     pageNo: index + 1, 
   ).catchError((e) => print("บันทึกไม่สำเร็จ: $e"));
 }
+void _openPageComments() {
+  // ตรวจว่า index ปัจจุบันไม่เกิน pages
+  if (_pageIndex >= _pages.length) return;
+
+  final currentPage = _pages[_pageIndex];
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: const Color(0xFF1A1A1A),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => PageCommentSheet(
+      pageId: currentPage.pageNumber,       // ต้องมี id ใน PageModel
+      pageNo: _pageIndex + 1,
+      userUuid: widget.userUuid,
+      comicIntId: widget.comicIntId,
+      commentRepo: _commentRepo,
+    ),
+  );
+}
+
 }

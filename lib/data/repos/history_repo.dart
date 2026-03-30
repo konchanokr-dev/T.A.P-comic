@@ -1,18 +1,16 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tapcomic/data/api/api_service.dart';
-import 'package:tapcomic/data/repos/comic_repo.dart';
 import '../models/reading_history.dart';
 class HistoryRepo {
 
 Future<String?> _getCurrentUserUuid() async {
   final prefs = await SharedPreferences.getInstance();
   
-  // ✅ return userUuid ไม่ใช่ token
   final userUuid = prefs.getString("userUuid");
   
-  print("📋 userUuid = $userUuid"); // เช็คค่า
+  print("📋 userUuid = $userUuid"); 
   return userUuid;
 }
  Future<void> saveProgress({
@@ -44,10 +42,10 @@ Future<String?> _getCurrentUserUuid() async {
     if (userUuid == null) return [];
 
    final res = await ApiService.get('/history/$userUuid');
-
+   debugPrint('👥 hisotory status: ${res.statusCode}');
 
     if (res.statusCode != 200) {
-      throw Exception('Failed to load history: ${res.body}');
+      throw Exception('Failed to load history: ${res.statusCode}');
     }
 
     final List data = jsonDecode(res.body);
@@ -88,24 +86,22 @@ Future<ReadingHistory?> getComicProgress(String comicUuid) async {
 
     final List data = jsonDecode(res.body);
     
-    // DEBUG: พิมพ์ดูว่า Server ส่งอะไรมากันแน่
-    print("📡 ข้อมูลจาก Server: $data");
+    print("ข้อมูลจาก Server: $data");
 
-    // แก้ไขการเปรียบเทียบ โดยใช้ .toString() ป้องกันเรื่อง Type Mismatch
     final match = data.firstWhere(
       (e) => e['comicUuid'].toString() == comicUuid.toString(),
       orElse: () => null,
     );
     
     if (match != null) {
-      print("🎯 เจอข้อมูลแล้ว! หน้าที่บันทึกไว้คือ: ${match['pageNumber']}");
+      print("หน้าที่บันทึกไว้คือ: ${match['pageNumber']}");
       return ReadingHistory.fromApi(match);
     } else {
-      print("🔎 ไม่พบประวัติของ Comic ID: $comicUuid");
+      print(" ไม่พบประวัติของ Comic ID: $comicUuid");
       return null;
     }
   } catch (e) {
-    print("❌ Error ใน getComicProgress: $e");
+    print(" Error ใน getComicProgress: $e");
     return null;
   }
 }
@@ -118,6 +114,9 @@ Future<ReadingHistory?> getComicProgress(String comicUuid) async {
 
     final historyRes = await ApiService.get('/history/$userUuid');
 
+
+   debugPrint('👥 hisotory status: ${historyRes.statusCode}');
+      debugPrint('👥 hisotory status: ${historyRes.body}');
 
 
   if (historyRes.statusCode != 200) {

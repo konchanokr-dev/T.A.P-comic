@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tapcomic/features/auth/about_page.dart';
+import 'package:tapcomic/features/auth/auth_service.dart';
 import 'package:tapcomic/features/auth/help_page.dart';
 import 'history_page.dart';
 import '../login.dart';
-import '../../../core/app_settings.dart';
 import '../../../core/app_setting_scope.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -31,11 +31,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _logout() async {
-    final theme = Theme.of(context); // ✅ ดึง theme ก่อน showDialog
+    final theme = Theme.of(context); 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: theme.colorScheme.surface, // ✅
+        backgroundColor: theme.colorScheme.surface, 
         title: Text('Logout', style: TextStyle(color: theme.colorScheme.onSurface)),
         content: Text(
           'Are you sure you want to logout?',
@@ -55,7 +55,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     if (confirm != true) return;
-
+await AuthService.clear();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
 
@@ -70,18 +70,17 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     final settings = AppSettingsScope.of(context);
     final isDark = settings.themeMode == ThemeMode.dark;
-    final theme = Theme.of(context); // ✅
+    final theme = Theme.of(context); 
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor, // ✅
+      backgroundColor: theme.scaffoldBackgroundColor, 
       appBar: AppBar(
-        // ✅ ไม่ต้องใส่สี AppBarTheme จัดการให้แล้วใน main.dart
         title: Text(
           'Profile & Settings',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 30,
-            color: theme.colorScheme.onSurface, // ✅
+            color: theme.colorScheme.onSurface, 
           ),
           textAlign: TextAlign.center,
         ),
@@ -93,14 +92,14 @@ class _ProfilePageState extends State<ProfilePage> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface, // ✅
+              color: theme.colorScheme.surface, 
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 22,
-                  backgroundColor: theme.colorScheme.onSurface.withOpacity(0.15), // ✅
+                  backgroundColor: theme.colorScheme.onSurface.withOpacity(0.15), 
                   child: Icon(Icons.person, color: theme.colorScheme.onSurface.withOpacity(0.6)),
                 ),
                 const SizedBox(width: 12),
@@ -108,7 +107,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Text(
                     username,
                     style: TextStyle(
-                      color: theme.colorScheme.onSurface, // ✅
+                      color: theme.colorScheme.onSurface, 
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
@@ -124,7 +123,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Text(
             'Settings',
             style: TextStyle(
-              color: theme.colorScheme.onSurface, // ✅
+              color: theme.colorScheme.onSurface, 
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -135,21 +134,21 @@ class _ProfilePageState extends State<ProfilePage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface, // ✅
+              color: theme.colorScheme.surface, 
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
                 Icon(
                   isDark ? Icons.dark_mode : Icons.light_mode,
-                  color: theme.colorScheme.onSurface.withOpacity(0.7), // ✅
+                  color: theme.colorScheme.onSurface.withOpacity(0.7), 
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Dark Mode',
                     style: TextStyle(
-                      color: theme.colorScheme.onSurface, // ✅
+                      color: theme.colorScheme.onSurface, 
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -190,7 +189,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Text(
             'About',
             style: TextStyle(
-              color: theme.colorScheme.onSurface, // ✅
+              color: theme.colorScheme.onSurface, 
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -233,7 +232,7 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context); // ✅ ต้องดึงใน build ของ widget นี้เอง
+    final theme = Theme.of(context); 
 
     return InkWell(
       onTap: onTap,
@@ -241,18 +240,18 @@ class _SettingsTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface, // ✅
+          color: theme.colorScheme.surface, 
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
-            Icon(icon, color: textColor ?? theme.colorScheme.onSurface.withOpacity(0.7)), // ✅
+            Icon(icon, color: textColor ?? theme.colorScheme.onSurface.withOpacity(0.7)), 
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 title,
                 style: TextStyle(
-                  color: textColor ?? theme.colorScheme.onSurface, // ✅
+                  color: textColor ?? theme.colorScheme.onSurface, 
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),

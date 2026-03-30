@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 enum ReaderMode {
   vertical,
   horizontal,
@@ -16,7 +14,7 @@ ThemeMode _themeMode = ThemeMode.dark;
 Future<void> loadUserSettings() async {
   final prefs = await SharedPreferences.getInstance();
   
-  // ✅ เพิ่มตรงนี้ — โหลด theme
+  
   final isDark = prefs.getBool('isDarkMode') ?? true;
   _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
 
@@ -27,7 +25,7 @@ Future<void> loadUserSettings() async {
     _readerMode = ReaderMode.values[modeIndex];
   }
 
-  notifyListeners(); // ย้ายมาตรงนี้ที่เดียวพอ
+  notifyListeners(); 
 }
   Future<void> setReaderMode(ReaderMode? mode) async {
     if (mode == null) return;
@@ -47,9 +45,9 @@ Future<void> loadUserSettings() async {
 Future<void> toggleTheme() async {
   final isDark = _themeMode == ThemeMode.dark;
   _themeMode = isDark ? ThemeMode.light : ThemeMode.dark;
-  notifyListeners(); // 👈 เรียกทันทีก่อน await — UI เปลี่ยนเลย
+  notifyListeners(); 
 
   final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('isDarkMode', !isDark); // save ทีหลังได้
+  await prefs.setBool('isDarkMode', !isDark); 
 }
 }

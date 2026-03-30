@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tapcomic/features/auth/auth_service.dart';
 import 'package:tapcomic/features/auth/main_shell.dart';  
 import 'register.dart';
 import '../../data/repos/user_repo.dart';
@@ -172,7 +172,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
- Future<void> _handleLogin() async {
+Future<void> _handleLogin() async {
   if (!_formKey.currentState!.validate()) return;
 
   try {
@@ -182,12 +182,12 @@ class _LoginPageState extends State<LoginPage> {
     );
 
     if (user != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString("userUuid", user.uuid);
-      await prefs.setString("username", user.name);
+      await AuthService.setToken(AuthService.token ?? '', user.uuid);
+
+      debugPrint('🔑 logged in uuid: ${AuthService.userUuid}');
+      debugPrint('🔑 logged in name: ${user.name}');
 
       if (!mounted) return;
-
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainShell()),
@@ -198,10 +198,10 @@ class _LoginPageState extends State<LoginPage> {
       );
     }
   } catch (e) {
-    print("LOGIN ERROR: $e");
-
+    debugPrint("LOGIN ERROR: $e");
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Something went wrong")),
     );
   }
-}}
+}
+}

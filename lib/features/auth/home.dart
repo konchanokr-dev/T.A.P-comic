@@ -61,7 +61,7 @@ class _HomeState extends State<Home> {
         children: [
           Text(title,
               style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold)),
-          TextButton(onPressed: () {}, child: const Text('See All')),
+          TextButton(onPressed: () {}, child:  Text('See All' , style: TextStyle(color: Colors.green),) ,),
         ],
       ),
     );

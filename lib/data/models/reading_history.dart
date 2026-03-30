@@ -1,7 +1,7 @@
 class ReadingHistory {
   final int? id;
   final String? userUuid;
-  final String comicUuid;   // ใช้ตัวนี้
+  final String comicUuid;   
   final int chapterId;
   final int pageNumber;
   final String lastReadAt;

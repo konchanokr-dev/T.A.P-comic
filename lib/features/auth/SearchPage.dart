@@ -2,10 +2,12 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:tapcomic/data/models/comic.dart';
+import 'package:tapcomic/data/models/genre.dart';
 import 'package:tapcomic/data/models/user.dart';
 import 'package:tapcomic/data/repos/comic_repo.dart';
 import 'package:tapcomic/features/auth/auth_service.dart';
 import 'package:tapcomic/features/auth/comic_detail_page.dart';
+import 'package:tapcomic/features/auth/user_profile_page.dart';
 import '../../data/repos/user_repo.dart';
 
 enum SearchType { comic, user }
@@ -27,13 +29,23 @@ class _SearchpageState extends State<Searchpage> {
   List<User> filteredUsers = [];
   bool isLoading = false;
   final TextEditingController searchController = TextEditingController();
-
+List<Genre> _genres = [];
+Set<int> _selectedGenreIds = {};
   @override
   void dispose() {
     _debounce?.cancel();
     super.dispose();
   }
+@override
+void initState() {
+  super.initState();
+  _loadGenres();
+}
 
+Future<void> _loadGenres() async {
+  final genres = await repo.getGenres();
+  setState(() => _genres = genres);
+}
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () async {
@@ -141,6 +153,41 @@ class _SearchpageState extends State<Searchpage> {
                 ),
               ),
               const SizedBox(height: 20),
+              if (searchType == SearchType.comic)
+  Align(
+    alignment: Alignment.centerLeft,
+    child: GestureDetector(
+      onTap: _showFilterSheet,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: _selectedGenreIds.isNotEmpty
+              ? theme.colorScheme.onSurface.withOpacity(0.2)
+              : theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.tune_rounded,
+                size: 16, color: theme.colorScheme.onSurface),
+            const SizedBox(width: 6),
+            Text(
+              _selectedGenreIds.isEmpty
+                  ? 'Filter'
+                  : 'Filter (${_selectedGenreIds.length})',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),              const SizedBox(height: 20),
 
               Expanded(child: _buildBody()),
             ],
@@ -179,18 +226,51 @@ class _SearchpageState extends State<Searchpage> {
       );
     } else {
       if (filteredUsers.isEmpty) return _empty();
-      return ListView.builder(
+      return ListView.separated(
+        padding: const EdgeInsets.only(bottom: 20),
         itemCount: filteredUsers.length,
-        itemBuilder: (context, index) {
-          final user = filteredUsers[index];
-          return ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: Text(user.name,
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
-          );
-        },
+        separatorBuilder: (_, __) => Divider(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1), height: 1),
+        itemBuilder: (context, index) => _buildUserItem(filteredUsers[index]),
       );
     }
+  }
+
+  Widget _buildUserItem(User user) {
+    final theme = Theme.of(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => UserProfilePage(user: user)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: theme.colorScheme.surface,
+              child: Icon(Icons.person,
+                  color: theme.colorScheme.onSurface.withOpacity(0.5)),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                user.name,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right,
+                color: theme.colorScheme.onSurface.withOpacity(0.3)),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildComicItem(Comic c) {
@@ -240,4 +320,154 @@ class _SearchpageState extends State<Searchpage> {
       ),
     );
   }
+
+void _showFilterSheet() {
+  final theme = Theme.of(context);
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: theme.scaffoldBackgroundColor,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => StatefulBuilder(
+      builder: (context, setSheetState) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Filter by Genre',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (_selectedGenreIds.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      setSheetState(() => _selectedGenreIds.clear());
+                      setState(() {});
+                      _onSearchChanged(searchController.text);
+                    },
+                    child: Text(
+                      'Clear',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.5),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── Genre Grid
+            Flexible(
+              child: GridView.builder(
+                shrinkWrap: true,
+                itemCount: _genres.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  childAspectRatio: 2.5,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemBuilder: (_, i) {
+                  final genre = _genres[i];
+                  final selected = _selectedGenreIds.contains(genre.id);
+                  return GestureDetector(
+                    onTap: () {
+                      setSheetState(() {
+                        if (selected) {
+                          _selectedGenreIds.remove(genre.id);
+                        } else {
+                          _selectedGenreIds.add(genre.id);
+                        }
+                      });
+                      setState(() {});
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? theme.colorScheme.onSurface.withOpacity(0.15)
+                            : theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: selected
+                              ? theme.colorScheme.onSurface.withOpacity(0.5)
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          genre.name,
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 12,
+                            fontWeight: selected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Apply button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  if (_selectedGenreIds.isNotEmpty) {
+                    _filterByGenre();
+                  } else {
+                    _onSearchChanged(searchController.text);
+                  }
+                },
+                child: Text(
+                  'Apply',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+Future<void> _filterByGenre() async {
+  setState(() => isLoading = true);
+  try {
+    final result = await repo.filterByGenre(_selectedGenreIds);
+    setState(() => filteredComics = result);
+  } catch (e) {
+    debugPrint('Filter error: $e');
+  }
+  setState(() => isLoading = false);
+}
 }

@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:tapcomic/data/api/api_service.dart';
 import 'package:tapcomic/data/models/comment.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http show get, post;
+import 'package:http/http.dart' as http show get;
 import 'package:tapcomic/data/repos/comment_repo.dart';
+import 'package:tapcomic/data/repos/vote_repo.dart';
 import 'package:tapcomic/features/auth/readersetting/readerstyle_setting.dart';
 import 'package:tapcomic/features/auth/reply.dart';
+import 'package:tapcomic/features/auth/report_sheet.dart';
 import '../../core/app_settings.dart';
 import '../../core/app_setting_scope.dart';
 import 'package:tapcomic/data/models/page_model.dart';
@@ -52,56 +55,55 @@ bool _loadingComments = true;
   final _commentRepo = CommentRepo();
    bool _isLoading = false;
    String? _token;
-   int _initialPage = 0; // เก็บหน้าที่อ่านค้างไว้จาก DB
-   
-bool _isFirstLoad = true;
+   int _initialPage = 0; 
+   bool? _userVote; // null = ยังไม่โหวต, true = like, false = dislike
+final _voteRepo = VoteRepo();
    double _screenHeight = 0;
 final TextEditingController _commentController = TextEditingController();
   String? _comicId;
   int? _episodeId;
- 
+ int _likeCount = 0;
+  int _dislikeCount = 0;
+  bool? _currentUserVote;
   List<PageModel> _pages = [];
   bool _loadingPages = true;
   late final ScrollController _scrollController;
-  late PageController _ppageController;   // สำหรับ Horizontal & Tap
-
+ int _currentLikeCount = 0;
+  int _currentDislikeCount = 0;
+  bool? _currentVoteStatus;
   Timer? _saveTimer;
   
 Map<String, String> userMap = {};
 @override
 void initState() {
   super.initState();
-
+    
   _pageController = PageController();
   _comicId = widget.comicId;
   _episodeId = widget.episodeId;
   _scrollController = ScrollController();
   _scrollController.addListener(_onVerticalScroll);
 
-  _init(); // โหลด token ก่อน
+  _init(); 
 }Future<void> _init() async {
   final prefs = await SharedPreferences.getInstance();
   _token = prefs.getString("accessToken");
-
+_refreshVoteStatus();
  final progress = await _historyRepo.getComicProgress(widget.comicId);
 if (progress != null) {
   print("🎬 ประวัติจากเซิร์ฟเวอร์: Chapter ${progress.chapterId}, Page ${progress.pageNumber}");
   
   if (progress.chapterId == widget.episodeId) {
     setState(() {
-      // ⚠️ ระวัง: ใน Log คุณบันทึกว่า "Page 3" 
-      // ต้องดูว่าใน Model ReadingHistory ใช้ชื่อว่า .pageNo หรือ .pageNumber
       _initialPage = progress.pageNumber; 
       _pageIndex = _initialPage;
     });
   }
 }
-  // 2. โหลดข้อมูลอื่นๆ ตามลำดับ
   await _loadPages();   
   await _loadUsers();
   await _loadComments();
 
-  // 3. สำคัญ: สั่งให้กระโดดไปยังหน้าที่ค้างไว้หลังจากโหลด Pages เสร็จแล้ว
 if (_initialPage > 0) {
     _jumpToInitialPage(); 
   }
@@ -189,9 +191,9 @@ Future<void> _saveProgress() async {
       print("💾 Saving Progress: Comic ${widget.comicId}, Chapter $_episodeId, Page $_pageIndex");
       
       await _historyRepo.saveProgress(
-        comicUuid: widget.comicId,   // ใช้ String UUID ตาม Repo
-        episodeId: _episodeId!,      // ID ของตอน (ควรเป็น Primary Key จาก DB)
-        pageNo: _pageIndex,          // ส่ง index ปัจจุบัน (0, 1, 2...)
+        comicUuid: widget.comicId,   
+        episodeId: _episodeId!,      
+        pageNo: _pageIndex,          
       );
     } catch (e) {
       print("⚠️ Save Progress Error: $e");
@@ -214,30 +216,27 @@ Widget build(BuildContext context) {
 
   return Scaffold(
     backgroundColor: Colors.black,
-    // เพิ่มบรรทัดนี้เพื่อป้องกัน Keyboard ดันหน้าจอจนพัง
     resizeToAvoidBottomInset: false, 
     body: Stack(
       children: [
-        // 1. ส่วนเนื้อหา (Reader)
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _toggleMenu,
           child: _buildReader(settings),
         ),
 
-        // 2. Custom Top Menu (แก้แทน AppBar ที่ Error)
         AnimatedPositioned(
           duration: const Duration(milliseconds: 200),
-          top: _showMenu ? 0 : -120, // ถ้าซ่อนให้ดันขึ้นไปพ้นจอ
+          top: _showMenu ? 0 : -120, 
           left: 0,
           right: 0,
           child: Material(
             color: Colors.black.withOpacity(0.9),
             elevation: 5,
-            child: SafeArea( // กัน Notch รอยบาก
+            child: SafeArea( 
               bottom: false,
               child: Container(
-                height: 60, // ล็อกความสูงแน่นอน แก้ปัญหา RenderBox not laid out
+                height: 60,
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Row(
@@ -266,7 +265,7 @@ Widget build(BuildContext context) {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 48), // เพื่อให้ Title อยู่ตรงกลาง
+                    const SizedBox(width: 48), 
                   ],
                 ),
               ),
@@ -274,7 +273,6 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        // 3. Bottom Menu
         AnimatedPositioned(
           duration: const Duration(milliseconds: 200),
           bottom: _showMenu ? 0 : -100,
@@ -282,10 +280,9 @@ Widget build(BuildContext context) {
           right: 0,
           child: _bottomMenu(context),
         ),
-        // Stack children เพิ่มต่อจาก Bottom Menu
 Positioned(
   right: 16,
-  bottom: _showMenu ? 72 : 16, // ขยับขึ้นเมื่อ menu โชว์
+  bottom: _showMenu ? 72 : 16, 
   child: FloatingActionButton(
     mini: true,
     backgroundColor: Colors.black87,
@@ -465,23 +462,19 @@ Future<void> _goToPreviousEpisode() async {
   );
 }
 void _jumpToInitialPage() {
-  Future.delayed(const Duration(milliseconds: 400), () { // เพิ่ม delay นิดหน่อยให้ชัวร์ว่า Render เสร็จ
+  Future.delayed(const Duration(milliseconds: 400), () { 
     if (!mounted) return;
 
-    // ดึงโหมดปัจจุบันจาก AppSettings
     final settings = AppSettingsScope.of(context);
 
-    // 1. โหมด Vertical (แนวตั้ง)
     if (settings.readerMode == ReaderMode.vertical) {
       if (_scrollController.hasClients) {
-        // ใช้ความสูงหน้าจอในการคำนวณจุดเลื่อน
         double targetOffset = _initialPage * MediaQuery.of(context).size.height;
         _scrollController.jumpTo(targetOffset);
         print("🚀 [Vertical] Jumped to offset: $targetOffset");
       }
     } 
     
-    // 2. โหมด Horizontal หรือ Tap (ใช้ PageView ทั้งคู่)
     else {
       if (_pageController.hasClients) {
         _pageController.jumpToPage(_initialPage);
@@ -494,10 +487,9 @@ Widget _vertical(List<PageModel> pages) {
   return ListView.builder(
     controller: _scrollController,
     cacheExtent: 500,
-    itemCount: pages.length + 1, // + comment
+    itemCount: pages.length + 1, 
     itemBuilder: (_, i) {
 
-      /// ถ้า index เป็นหน้าการ์ตูน
       if (i < pages.length) {
         return RepaintBoundary(
           key: ValueKey(pages[i].pageUrl),
@@ -505,10 +497,16 @@ Widget _vertical(List<PageModel> pages) {
         );
       }
 
-      /// ถ้า index สุดท้าย = comment 
       return SizedBox(
   width: double.infinity,
-  child: _commentSection(),
+   child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _voteSection(widget.episodeId), // แสดง vote section ก่อน
+          SizedBox(height: 16),    // เว้นระยะห่าง
+          _commentSection(),       // ตามด้วย comment section
+        ],
+      ),
 );
     },
   );
@@ -520,9 +518,8 @@ Widget _horizontal(List<PageModel> pages) {
     allowImplicitScrolling: true,
     itemCount: pages.length + 1,
   onPageChanged: (i) {
-  _pageIndex = i; // อัปเดต index ปัจจุบัน
+  _pageIndex = i; 
   
-  // ยกเลิก Timer เก่าและเริ่มนับใหม่ 2 วินาทีค่อยบันทึก (เพื่อไม่ให้ยิง API บ่อยเกินไป)
   _saveTimer?.cancel();
   _saveTimer = Timer(const Duration(seconds: 2), _saveProgress);
 
@@ -532,22 +529,26 @@ Widget _horizontal(List<PageModel> pages) {
 },
     itemBuilder: (_, i) {
 
-      /// หน้าการ์ตูน
       if (i < pages.length) {
         return SizedBox.expand(
           child: _buildImage(pages[i].pageUrl),
         );
       }
-    // ตัวอย่างในโหมด _horizontal หรือ _tap
 return SingleChildScrollView(
   child: ConstrainedBox(
     constraints: BoxConstraints(
-      // กำหนดความสูงขั้นต่ำให้เท่ากับหน้าจอ เพื่อไม่ให้ Layout คำนวณเป็น 0
       minHeight: MediaQuery.of(context).size.height, 
     ),
     child: Padding(
       padding: const EdgeInsets.only(top: 60), 
-      child: _commentSection(),
+     child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _voteSection(widget.episodeId), // แสดง vote section ก่อน
+          SizedBox(height: 16),    // เว้นระยะห่าง
+          _commentSection(),       // ตามด้วย comment section
+        ],
+      ),
     ),
   ),
 );
@@ -573,9 +574,8 @@ return SingleChildScrollView(
       physics: const NeverScrollableScrollPhysics(),
       itemCount: pages.length + 1,
     onPageChanged: (i) {
-  _pageIndex = i; // อัปเดต index ปัจจุบัน
+  _pageIndex = i; 
   
-  // ยกเลิก Timer เก่าและเริ่มนับใหม่ 2 วินาทีค่อยบันทึก (เพื่อไม่ให้ยิง API บ่อยเกินไป)
   _saveTimer?.cancel();
   _saveTimer = Timer(const Duration(seconds: 2), _saveProgress);
 
@@ -585,7 +585,6 @@ return SingleChildScrollView(
 },
       itemBuilder: (_, i) {
 
-        /// page
         if (i < pages.length) {
           return Center(
   child: _buildImage(pages[i].pageUrl),
@@ -593,16 +592,21 @@ return SingleChildScrollView(
         }
 
     
-       // ตัวอย่างในโหมด _horizontal หรือ _tap
 return SingleChildScrollView(
   child: ConstrainedBox(
     constraints: BoxConstraints(
-      // กำหนดความสูงขั้นต่ำให้เท่ากับหน้าจอ เพื่อไม่ให้ Layout คำนวณเป็น 0
       minHeight: MediaQuery.of(context).size.height, 
     ),
     child: Padding(
       padding: const EdgeInsets.only(top: 60), 
-      child: _commentSection(),
+       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _voteSection(widget.episodeId), // แสดง vote section ก่อน
+          SizedBox(height: 16),    // เว้นระยะห่าง
+          _commentSection(),       // ตามด้วย comment section
+        ],
+      ),
     ),
   ),
 );
@@ -643,27 +647,27 @@ void _preloadAround(int index) {
     }
   }
 Widget _commentSection() {
+  final theme = Theme.of(context);
+
   return Container(
     width: double.infinity,
-    margin: const EdgeInsets.only(top: 40), // เว้นจากรูปการ์ตูน
+    margin: const EdgeInsets.only(top: 40),
     padding: const EdgeInsets.all(16),
-
     decoration: BoxDecoration(
-      color: const Color(0xFF1A1A1A),
+      color: theme.colorScheme.surface,
       borderRadius: const BorderRadius.vertical(
         top: Radius.circular(30),
       ),
     ),
-
     child: Column(
-      mainAxisSize: MainAxisSize.min, // ⭐ สำคัญ
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
 
-        const Text(
+        Text(
           "Comments",
           style: TextStyle(
-            color: Colors.white,
+            color: theme.colorScheme.onSurface,
             fontSize: 26,
             fontWeight: FontWeight.bold,
           ),
@@ -671,25 +675,29 @@ Widget _commentSection() {
 
         const SizedBox(height: 16),
 
-        /// ช่องพิมพ์คอมเมนต์
         Row(
           children: [
-            const CircleAvatar(radius: 18),
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
+            ),
             const SizedBox(width: 10),
 
             Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: Colors.grey[850],
+                  color: theme.colorScheme.onSurface.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: TextField(
                   controller: _commentController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                  decoration: InputDecoration(
                     hintText: "Write Your Comment Here!",
-                    hintStyle: TextStyle(color: Colors.white54),
+                    hintStyle: TextStyle(
+                      color: theme.colorScheme.onSurface.withOpacity(0.4),
+                    ),
                     border: InputBorder.none,
                   ),
                 ),
@@ -697,7 +705,7 @@ Widget _commentSection() {
             ),
 
             IconButton(
-              icon: const Icon(Icons.send, color: Colors.greenAccent),
+              icon: Icon(Icons.send, color: theme.colorScheme.primary),
               onPressed: _sendComment,
             ),
           ],
@@ -705,130 +713,127 @@ Widget _commentSection() {
 
         const SizedBox(height: 20),
 
-        /// loading
         if (_loadingComments)
-          const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          ),
-
-        /// comment list
-        ...comments.map((c) => _commentItem(c)).toList(),
+          Center(
+            child: CircularProgressIndicator(
+              color: theme.colorScheme.onSurface,
+            ),
+          )
+        else
+          ...comments.map((c) => _commentItem(c)).toList(),
 
         const SizedBox(height: 30),
       ],
     ),
   );
 }
-Widget _buildCommentInput() {
-  return Row(
-    children: [
-      Expanded(
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.grey[900],
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white10),
-          ),
-          child: TextField(
-            controller: _commentController,
-            style: const TextStyle(color: Colors.white),
-            minLines: 1,
-            maxLines: 3, // ให้พิมพ์ได้หลายบรรทัดแต่จำกัดความสูง
-            decoration: const InputDecoration(
-              hintText: "Write a comment...",
-              hintStyle: TextStyle(color: Colors.white38),
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              border: InputBorder.none,
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(width: 8),
-      IconButton(
-        onPressed: _sendComment,
-        icon: const Icon(Icons.send, color: Colors.blueAccent),
-      ),
-    ],
-  );
-}
 Widget _commentItem(CommentModel c) {
-  return Container(
-    margin: const EdgeInsets.only(bottom: 12), // ระยะห่างระหว่างกล่อง
-    padding: const EdgeInsets.all(10), // ระยะห่างภายในกล่อง
-    decoration: BoxDecoration(
-      color: const Color(0xFF333333), // 👈 ใส่สีพื้นหลังตรงนี้ (สีเทาเข้มแบบในรูป)
-      borderRadius: BorderRadius.circular(20), // ความมนของมุมกล่อง
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.white24, // สีวงกลมรูปโปรไฟล์
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.onSurface.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: theme.colorScheme.onSurface.withOpacity(0.15),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          c.user?.name ?? "user",
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+  onPressed: () => showReportSheet(
+    context,
+    userUuid: c.user.uuid,
+    commentId: c.id,
+  ),
+  icon: const Icon(Icons.flag_outlined),
+  color: theme.colorScheme.onSurface.withOpacity(0.4),
+  iconSize: 18,
+  padding: EdgeInsets.zero,
+  constraints: const BoxConstraints(),
+  visualDensity: VisualDensity.compact,
+),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      c.text,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        c.user?.name ?? "user",
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      // ปุ่ม Report มุมขวาบน
-                      GestureDetector(
-                        onTap: () => _reportComment(c),
-                        child: const Text(
-                          "report",
-                          style: TextStyle(color: Colors.redAccent, fontSize: 12),
-                        ),
-                      ),
-                    ],
+                  Icon(
+                    Icons.thumb_up_alt_outlined,
+                    color: theme.colorScheme.onSurface.withOpacity(0.5),
+                    size: 18,
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(width: 4),
                   Text(
-                    c.text,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    "0",
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(
+                    Icons.thumb_down_alt_outlined,
+                    color: theme.colorScheme.onSurface.withOpacity(0.5),
+                    size: 18,
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        // ส่วนล่าง: Like / Dislike / Reply
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.thumb_up_alt_outlined, color: Colors.white70, size: 18),
-                const SizedBox(width: 4),
-                const Text("40", style: TextStyle(color: Colors.white70)),
-                const SizedBox(width: 16),
-                const Icon(Icons.thumb_down_alt_outlined, color: Colors.white70, size: 18),
-              ],
-            ),
-            TextButton.icon(
-              onPressed: () => _openReplyThread(c),
-              icon: const Icon(Icons.mode_comment_outlined, color: Colors.white70, size: 12),
-              label: const Text("reply", style: TextStyle(color: Colors.white70)),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
+              TextButton.icon(
+                onPressed: () => _openReplyThread(c),
+                icon: Icon(
+                  Icons.mode_comment_outlined,
+                  color: theme.colorScheme.onSurface.withOpacity(0.5),
+                  size: 12,
+                ),
+                label: Text(
+                  "reply",
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 void _openReplyThread(CommentModel comment) {
   showModalBottomSheet(
     context: context,
@@ -876,7 +881,7 @@ Future<void> _loadComments() async {
       _loadingComments = false;
     });
   } catch (e) {
-    print("❌ ERROR: $e"); // ดู error ตรงนี้
+    print("❌ ERROR: $e"); 
     if (!mounted) return;
     setState(() {
       _loadingComments = false;
@@ -896,45 +901,16 @@ Future<void> _sendComment() async {
 
     _commentController.clear();
 
-    await _loadComments(); // ✅ ใส่ await ตรงนี้
+    await _loadComments(); 
   } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Failed to send comment")),
     );
   }
 }
-Future<void> _reportComment(CommentModel c) async {
-  try {
-
-    await http.post(
-      Uri.parse("https://xacetx123.share.zrok.io/api/report"),
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: jsonEncode({
-        "uuid": widget.userUuid,
-        "commentId": c.id,
-        "reason": "spam"
-      }),
-    );
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Reported successfully")),
-    );
-
-  } catch (e) {
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Report failed")),
-    );
-
-  }
-}
+Future<void> _reportComment(CommentModel c) =>
+    showReportSheet(context, userUuid: widget.userUuid, commentId: c.id);
 void _onPageChanged(int index) {
-  // บันทึกหน้าปัจจุบันไปยัง Server
-  // index + 1 เพราะ page ปกติเริ่มจาก 1
   _historyRepo.saveProgress(
     comicUuid: widget.comicId,
     episodeId: widget.comicIntId,
@@ -942,7 +918,6 @@ void _onPageChanged(int index) {
   ).catchError((e) => print("บันทึกไม่สำเร็จ: $e"));
 }
 void _openPageComments() {
-  // ตรวจว่า index ปัจจุบันไม่เกิน pages
   if (_pageIndex >= _pages.length) return;
 
   final currentPage = _pages[_pageIndex];
@@ -955,7 +930,7 @@ void _openPageComments() {
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (_) => PageCommentSheet(
-      pageId: currentPage.pageNumber,       // ต้องมี id ใน PageModel
+      pageId: currentPage.pageNumber,       
       pageNo: _pageIndex + 1,
       userUuid: widget.userUuid,
       comicIntId: widget.comicIntId,
@@ -963,5 +938,82 @@ void _openPageComments() {
     ),
   );
 }
+//vote devote chapter
+Widget _voteSection(int chapterId) {
+  final theme = Theme.of(context);
+  return Row(
+    children: [
+      IconButton(
+        onPressed: () async {
+          await _voteRepo.voteChapter(chapterId, true);
+          // เมื่อโหวตสำเร็จ (POST 200) ให้โหลด List ใหม่เพื่ออัปเดต Counts
+          await _refreshVoteStatus(); 
+        },
+        icon: Icon(
+          Icons.thumb_up_alt_outlined,
+          // อ้างอิงจากสถานะที่ถูกรีเฟรชแล้ว
+          color: _currentVoteStatus == true
+              ? theme.colorScheme.primary
+              : theme.colorScheme.onSurface.withOpacity(0.5),
+        ),
+      ),
+      // *** แสดง Like Count ***
+      Text("$_currentLikeCount", style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7))),
 
+      const SizedBox(width: 15),
+      
+      IconButton(
+        onPressed: () async {
+          await _voteRepo.voteChapter(chapterId, false);
+          // เมื่อโหวตสำเร็จ (POST 200) ให้โหลด List ใหม่เพื่ออัปเดต Counts
+          await _refreshVoteStatus(); 
+        },
+        icon: Icon(
+          Icons.thumb_down_alt_outlined,
+          color: _currentVoteStatus == false
+              ? Colors.redAccent
+              : theme.colorScheme.onSurface.withOpacity(0.5),
+        ),
+      ),
+      // *** แสดง Dislike Count ***
+      Text("$_currentDislikeCount", style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7))),
+    ],
+  );
+}
+
+Future<void> _refreshVoteStatus() async {
+  final chapterId = widget.episodeId; 
+
+  try {
+
+    final response = await ApiService.get("/comics/${widget.comicId}/chapter"); 
+
+    if (response.statusCode == 200) {
+        // แปลง Response Body (List of JSON)
+        final List<dynamic> chapterList = jsonDecode(response.body);
+
+        // ค้นหา Chapter ที่เราสนใจจาก List
+        final targetChapter = chapterList.firstWhere(
+          (chapter) => chapter['id'] == chapterId,
+          orElse: () => null,
+        );
+
+        if (targetChapter != null) {
+            if (!mounted) return;
+            setState(() {
+                _currentLikeCount = targetChapter['likeCount'] ?? 0;
+                _currentDislikeCount = targetChapter['dislikeCount'] ?? 0;
+                _currentVoteStatus = targetChapter['currentUserVote'];
+            });
+        } else {
+            print("Warning: Target chapter ID $chapterId not found in the response list.");
+        }
+    } else {
+        throw Exception("Failed to refresh chapter list: ${response.statusCode}");
+    }
+
+  } catch (e) {
+    print("Error loading vote status via list refresh: $e");
+  }
+}
 }

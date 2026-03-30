@@ -25,7 +25,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppSettingsScope(
       settings: settings,
-       child: ListenableBuilder(              // 👈 เพิ่มตรงนี้
+       child: ListenableBuilder(              
         listenable: settings,
          builder: (context, _) {
       return  MaterialApp(
@@ -33,20 +33,22 @@ class MyApp extends StatelessWidget {
   theme: ThemeData.light().copyWith(
   scaffoldBackgroundColor: const Color(0xFFF5F5F5),
   colorScheme: const ColorScheme.light(
-    surface: Color(0xFFE8E8E8),      // แทน 0xFF1E1E1E
+    surface: Color(0xFFE8E8E8),      
     onSurface: Colors.black,
+    primary: Colors.green, 
     onBackground: Colors.black87,
   ),
   appBarTheme: const AppBarTheme(
     backgroundColor: Color(0xFFF5F5F5),
     foregroundColor: Colors.black,
   ),
-  cardColor: const Color(0xFFE0E0E0), // แทน 0xFF282828
+  cardColor: const Color(0xFFE0E0E0), 
 ),
 darkTheme: ThemeData.dark().copyWith(
   scaffoldBackgroundColor: const Color(0xFF171717),
   colorScheme: const ColorScheme.dark(
     surface: Color(0xFF1E1E1E),
+    primary: Colors.green, 
     onSurface: Colors.white,
     onBackground: Colors.white70,
   ),

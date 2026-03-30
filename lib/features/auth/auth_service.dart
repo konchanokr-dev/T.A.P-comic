@@ -1,16 +1,16 @@
 import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   static String? _token;
-  static String? _userUuid; // 👈 เพิ่ม
+  static String? _userUuid; 
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString("accessToken");
-    _userUuid = prefs.getString("userUuid"); // 👈 โหลดพร้อมกัน
+    _userUuid = prefs.getString("userUuid"); 
   }
 
   static String? get token => _token;
-  static String? get userUuid => _userUuid; // 👈 getter
+  static String? get userUuid => _userUuid; 
 
   static Future<void> setToken(String newToken, String uuid) async {
     _token = newToken;

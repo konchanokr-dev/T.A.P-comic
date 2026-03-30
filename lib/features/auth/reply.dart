@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tapcomic/data/models/comment.dart';
 import 'package:tapcomic/data/repos/comment_repo.dart';
-import 'package:tapcomic/data/repos/report_repo.dart';
+import 'package:tapcomic/features/auth/report_sheet.dart';
 
 class ReplyThreadWidget extends StatefulWidget {
   final CommentModel comment;
@@ -14,6 +14,7 @@ class ReplyThreadWidget extends StatefulWidget {
 
 class _ReplyThreadWidgetState extends State<ReplyThreadWidget> {
   final TextEditingController controller = TextEditingController();
+
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +33,8 @@ class _ReplyThreadWidgetState extends State<ReplyThreadWidget> {
             // drag handle
             Container(
               margin: const EdgeInsets.only(top: 8),
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
                 color: theme.colorScheme.onSurface.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(10),
@@ -52,13 +54,18 @@ class _ReplyThreadWidgetState extends State<ReplyThreadWidget> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(comment.user?.name ?? "user",
-                            style: TextStyle(
-                                color: theme.colorScheme.onSurface.withOpacity(0.7),
-                                fontWeight: FontWeight.bold)),
+                        Text(
+                          comment.user?.name ?? "user",
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text(comment.text,
-                            style: TextStyle(color: theme.colorScheme.onSurface)),
+                        Text(
+                          comment.text,
+                          style: TextStyle(color: theme.colorScheme.onSurface),
+                        ),
                       ],
                     ),
                   ),
@@ -69,43 +76,62 @@ class _ReplyThreadWidgetState extends State<ReplyThreadWidget> {
             Divider(color: theme.colorScheme.onSurface.withOpacity(0.15)),
 
             // replies
+           // replies
+Expanded(
+  child: ListView.builder(
+    itemCount: comment.replies?.length ?? 0,
+    itemBuilder: (_, i) {
+      final r = comment.replies![i];
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const CircleAvatar(radius: 14),
+            const SizedBox(width: 8),
             Expanded(
-              child: ListView.builder(
-                itemCount: comment.replies?.length ?? 0,
-                itemBuilder: (_, i) {
-                  final r = comment.replies![i];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        const CircleAvatar(radius: 14),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(r.user?.name ?? "user",
-                                  style: TextStyle(
-                                      color: theme.colorScheme.onSurface.withOpacity(0.7),
-                                      fontSize: 13, fontWeight: FontWeight.bold)),
-                              Text(r.text,
-                                  style: TextStyle(
-                                      color: theme.colorScheme.onSurface, fontSize: 13)),
-                              TextButton(
-                                onPressed: () => _reportComment(r.id),
-                                child: const Text("Report",
-                                    style: TextStyle(color: Colors.redAccent)),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    r.user?.name ?? "user",
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    r.text,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
             ),
-
+            // 👇 เปลี่ยนจาก TextButton เป็น IconButton ธง
+            IconButton(
+              onPressed: () => showReportSheet(
+                context,
+                userUuid: widget.userUuid,
+                commentId: r.id,
+              ),
+              icon: const Icon(Icons.flag_outlined),
+              color: theme.colorScheme.onSurface.withOpacity(0.4),
+              iconSize: 18,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
+      );
+    },
+  ),
+),
             // reply input
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -119,7 +145,8 @@ class _ReplyThreadWidgetState extends State<ReplyThreadWidget> {
                       decoration: InputDecoration(
                         hintText: "Write reply...",
                         hintStyle: TextStyle(
-                            color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                          color: theme.colorScheme.onSurface.withOpacity(0.5),
+                        ),
                         border: InputBorder.none,
                       ),
                     ),
@@ -148,7 +175,8 @@ class _ReplyThreadWidgetState extends State<ReplyThreadWidget> {
       );
       setState(() {
         widget.comment.replies.add(ReplyModel(
-          id: 0, text: text,
+          id: 0,
+          text: text,
           user: widget.comment.user,
           createAt: DateTime.now().toString(),
           mainCommentId: widget.comment.id,
@@ -157,20 +185,8 @@ class _ReplyThreadWidgetState extends State<ReplyThreadWidget> {
       controller.clear();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to send reply")));
-    }
-  }
-
-  Future<void> _reportComment(int commentId) async {
-    try {
-      await ReportRepo().reportComment(
-          uuid: widget.userUuid, commentId: commentId, reason: "spam");
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Reported")));
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Report failed")));
+        const SnackBar(content: Text("Failed to send reply")),
+      );
     }
   }
 }

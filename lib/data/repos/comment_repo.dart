@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:tapcomic/data/api/api_service.dart';
 import 'package:tapcomic/data/models/comment.dart';
 class CommentRepo {

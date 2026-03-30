@@ -17,7 +17,6 @@ final List<ReplyModel> replies;
       id: json["id"],
       text: json["text"],
       user: UserModel.fromJson(json["user"]),
-      // ✅ ใส่ List(...) ครอบเพื่อให้ mutable
       replies: List<ReplyModel>.from(
         (json["replies"] as List).map((e) => ReplyModel.fromJson(e)),
       ),

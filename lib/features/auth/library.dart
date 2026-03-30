@@ -23,8 +23,8 @@ class _LibraryState extends State<Library> {
   }
 
  void _loadFavorites() {
-  _future = favoriteRepo.getAll(); // assign ก่อน
-  setState(() {}); // แค่ trigger rebuild
+  _future = favoriteRepo.getAll(); 
+  setState(() {}); 
 }
   @override
   Widget build(BuildContext context) {

@@ -17,7 +17,6 @@ class ApiService {
       if(token != null) "Authorization": "Bearer $token"
     };
   }
-
   static Future<http.Response> get(String path) async {
     final headers = await _headers();
 
@@ -36,7 +35,15 @@ class ApiService {
       body: jsonEncode(body),
     );
   }
+static Future<http.Response> patch(String path, [dynamic body]) async {
+  final headers = await _headers();
 
+  return http.patch(
+    Uri.parse("$baseUrl$path"),
+    headers: headers,
+    body: body != null ? jsonEncode(body) : null,
+  );
+}
   Future<List<Comic>> fetchComics() async {
 
     final response = await ApiService.get("/comics");

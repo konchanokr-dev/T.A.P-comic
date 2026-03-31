@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/cupertino.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tapcomic/data/models/genre.dart';
 import '../models/comic.dart';
 import '../api/api_service.dart';
@@ -21,16 +22,45 @@ final String baseUrl = ApiService.baseUrl;
         .map((e) => Comic.fromMap(e))
         .toList();
   }
+  Future<List<Comic>> fetchNew({int limit = 20}) async {
+  final response = await ApiService.get('/comics/recent');
 
+  if (response.statusCode != 200) {
+    throw Exception("Failed to load comics");
+  }
+
+  final json = jsonDecode(response.body);
+
+  final List data = json["content"]; 
+
+  return data
+      .map((e) => Comic.fromMap(e))
+      .toList();
+}
+ Future<List<Comic>> fetchPopular({int limit = 20}) async {
+  final response = await ApiService.get('/comics/popular');
+
+  if (response.statusCode != 200) {
+    throw Exception("Failed to load comics");
+  }
+
+  final json = jsonDecode(response.body);
+
+  final List data = json["content"]; 
+
+  return data
+      .map((e) => Comic.fromMap(e))
+      .toList();
+}
 Future<Map<String, dynamic>?> fetchComicDetailByUuId(String comicId) async {
   final response = await ApiService.get('/comics/$comicId');
-
   if (response.statusCode != 200) {
     throw Exception("Failed to load comic detail");
   }
-
+  print(response.body);
   return jsonDecode(response.body);
 }
+
 Future<Comic?> fetchComicDetailByUuIdC(String comicId) async {
   final response = await ApiService.get('/comics/$comicId');
 
@@ -104,6 +134,18 @@ Future<List<Comic>> filterByGenre(Set<int> genreIds) async {
   if (res.statusCode != 200) throw Exception('Filter failed');
   final data = jsonDecode(res.body);
   return (data['content'] as List).map((e) => Comic.fromMap(e)).toList();
+}
+Future<List<Comic>> fetchFollowing() async {
+  final prefs = await SharedPreferences.getInstance();
+  final uuid = prefs.getString('userUuid') ?? '';
+  final res = await ApiService.get("/users/$uuid/library");
+  if (res.statusCode == 200) {
+    final data = jsonDecode(res.body);
+    final list = data['comicDTO'] as List;
+    print(data);
+    return list.map((e) => Comic.fromMap(e)).toList();
+  }
+  throw Exception("Failed to load library");
 }
 }
 

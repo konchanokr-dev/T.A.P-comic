@@ -51,7 +51,14 @@ class ReaderstyleSetting extends StatelessWidget {
           current: settings.readerMode,
           onTap: () => settings.setReaderMode(ReaderMode.tap),
         ),
-
+        _modeCard
+        (context, 
+        title: "Tap to change(UP DOWN)",
+         icon: Icons.touch_app, 
+         mode: ReaderMode.tapUD, 
+         current: settings.readerMode, 
+         onTap: () => settings.setReaderMode(ReaderMode.tapUD),
+         ),
         const SizedBox(height: 20),
       ],
     );

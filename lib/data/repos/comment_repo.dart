@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:tapcomic/data/api/api_service.dart';
 import 'package:tapcomic/data/models/comment.dart';
 class CommentRepo {
@@ -12,14 +13,14 @@ class CommentRepo {
     final List data = jsonDecode(res.body);
 
     return data.map((e) => CommentModel.fromJson(e)).toList();
-  }Future<void> addComment({
+  }
+  Future<void> addComment({
   required String userUuid,
   required int comicId,
   required int chapterId,
   required String text,
   int? pageId,
 }) async {
-
   final body = {
     "userUuid": userUuid,
     "comicId": comicId,
@@ -27,14 +28,14 @@ class CommentRepo {
     "pageId": pageId,
     "text": text,
   };
+  
 
   final res = await ApiService.post(
     "/comments/add/comment",
     body,
   );
 
-  print("STATUS: ${res.statusCode}");
-  print("RESPONSE: ${res.body}");
+  
 
   if (res.statusCode != 200) {
     throw Exception("Failed to send comment");
@@ -82,7 +83,17 @@ Future<void> addComicComment({
   });
   if (res.statusCode != 200) throw Exception("Failed to send comment");
 }
-
+Future<void> voteComment({
+  required int commentId,
+  required bool vote,
+}) async {
+  final res = await ApiService.post(
+    "/vote/comment/$commentId?vote=$vote",
+    {}, // body ว่าง เพราะ vote เป็น query param
+  );
+  if (res.statusCode == 401) throw Exception("Unauthorized");
+  if (res.statusCode != 200) throw Exception("Failed to vote");
+}
 // Chapter level
 Future<void> addChapterComment({
   required String userUuid,
@@ -112,6 +123,16 @@ Future<void> addPageComment({
     "pageId": pageId,
     "text": text,
   });
+  debugPrint(res.body);
   if (res.statusCode != 200) throw Exception("Failed to send comment");
+}
+/*
+Future<void> voteComment({required int commentId, required bool vote}) async {
+  await ApiService.post("/vote/comment/$commentId?vote=$vote", {});
+}*/
+
+Future<void> voteReply({required int replyId, required bool vote}) async {
+  await ApiService.post("/vote/reply/$replyId?vote=$vote", {});
+
 }
 }

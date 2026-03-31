@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tapcomic/data/repos/comic_repo.dart';
 import 'package:tapcomic/data/repos/history_repo.dart';
+import 'package:tapcomic/widget/NameAvatar.dart';
 import 'comic_reader_page.dart';
 import 'package:tapcomic/data/repos/favorite_repo.dart';
 import 'package:tapcomic/data/repos/comment_repo.dart';
@@ -25,6 +26,8 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
   final favoriteRepo = FavoriteRepo();
   String? token;
   String userUuid = "";
+  String _currentUserName = "";
+
   List comments = [];
   bool loadingComments = true;
   Future<Map<String, dynamic>?>? _future;
@@ -34,11 +37,12 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
   bool _favoriteLoaded = false;
   bool _expanded = false;
   final _commentRepo = CommentRepo();
-
+bool _sortDescending = true;
   final TextEditingController _commentController = TextEditingController();
   List<CommentModel> _comments = [];
   bool _loadingComments = true;
   int? _comicIntId;
+  
   @override
   void dispose() {
     _commentController.dispose();
@@ -53,10 +57,10 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
 
   Future<void> _init() async {
     await _loadUser();
-
+final prefs = await SharedPreferences.getInstance();
+_currentUserName = prefs.getString('userName') ?? "";
     _future = repo.fetchComicDetailByUuId(widget.comicId);
     _chapterFuture = repo.fetchChapters(widget.comicId);
-
     try {
       final favs = await favoriteRepo.getAll();
 
@@ -78,21 +82,30 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
 
     print("USER UUID = $userUuid");
   }
+DateTime parseDate(String s) {
+  return DateTime.parse(s.replaceFirst(' ', 'T'));
+}
+Future<void> _loadComments(int comicIntId) async {
+  try {
+    final data = await _commentRepo.getComicComments(comicIntId);
+    debugPrint(">>> comments count = ${data.length}"); // เพิ่ม
+    if (!mounted) return;
+ data.sort((a, b) {
+  final dateA = DateTime.parse(a.createAt);
+  final dateB = DateTime.parse(b.createAt);
+  return dateB.compareTo(dateA); // ใหม่ก่อน
+});
 
-  Future<void> _loadComments(int comicIntId) async {
-    try {
-      final data = await _commentRepo.getComicComments(comicIntId);
-      if (!mounted) return;
-      setState(() {
-        _comments = data;
-        _loadingComments = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _loadingComments = false);
-    }
+setState(() {
+  _comments = data;
+  _loadingComments = false;
+});
+  } catch (e) {
+    debugPrint(">>> _loadComments ERROR = $e"); // เพิ่ม
+    if (!mounted) return;
+    setState(() => _loadingComments = false);
   }
-
+}
   Future<void> _sendComment(int comicIntId) async {
     if (_commentController.text.trim().isEmpty) return;
     try {
@@ -149,10 +162,8 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
           const SizedBox(height: 16),
           Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
-              ),
+             NameAvatar(name: _currentUserName, radius: 18),
+
               const SizedBox(width: 10),
               Expanded(
                 child: Container(
@@ -196,6 +207,7 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
   }
 
   Widget _commentItem(CommentModel c) {
+    debugPrint("comment id = ${c.id}");
     final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -210,10 +222,7 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: theme.colorScheme.onSurface.withOpacity(0.15),
-              ),
+NameAvatar(name: c.user?.name ?? 'user', radius: 18),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -247,6 +256,7 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
                     const SizedBox(height: 2),
                     Text(
                       c.text,
+                    
                       style: TextStyle(
                         color: theme.colorScheme.onSurface,
                         fontSize: 14,
@@ -257,47 +267,92 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
               ),
             ],
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.thumb_up_alt_outlined,
-                    color: theme.colorScheme.onSurface.withOpacity(0.5),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    "0",
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.5),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Icon(
-                    Icons.thumb_down_alt_outlined,
-                    color: theme.colorScheme.onSurface.withOpacity(0.5),
-                    size: 18,
-                  ),
-                ],
-              ),
-              TextButton.icon(
-                onPressed: () => _openReplyThread(c),
-                icon: Icon(
-                  Icons.mode_comment_outlined,
-                  color: theme.colorScheme.onSurface.withOpacity(0.5),
-                  size: 12,
-                ),
-                label: Text(
-                  "reply",
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface.withOpacity(0.5),
-                  ),
-                ),
-              ),
-            ],
+         Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    Row(
+      children: [
+        GestureDetector(
+          onTap: () async {
+            try {
+              await _commentRepo.voteComment(
+                commentId: c.id,
+                vote: true,
+              );
+              await _loadComments(_comicIntId!);
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Please login first")),
+              );
+            }
+          },
+          child: Icon(
+            c.currentUserVote == true
+                ? Icons.thumb_up_alt
+                : Icons.thumb_up_alt_outlined,
+            color: c.currentUserVote == true
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurface.withOpacity(0.5),
+            size: 18,
           ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          "${c.likeCount}",
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withOpacity(0.5),
+          ),
+        ),
+        const SizedBox(width: 16),
+        GestureDetector(
+          onTap: () async {
+            try {
+              await _commentRepo.voteComment(
+                commentId: c.id,
+                vote: false,
+              );
+              await _loadComments(_comicIntId!);
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Please login first")),
+              );
+            }
+          },
+          child: Icon(
+            c.currentUserVote == false
+                ? Icons.thumb_down_alt
+                : Icons.thumb_down_alt_outlined,
+            color: c.currentUserVote == false
+                ? Colors.red
+                : theme.colorScheme.onSurface.withOpacity(0.5),
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          "${c.dislikeCount}",
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withOpacity(0.5),
+          ),
+        ),
+      ],
+    ),
+    TextButton.icon(
+      onPressed: () => _openReplyThread(c),
+      icon: Icon(
+        Icons.mode_comment_outlined,
+        color: theme.colorScheme.onSurface.withOpacity(0.5),
+        size: 12,
+      ),
+      label: Text(
+        "reply",
+        style: TextStyle(
+          color: theme.colorScheme.onSurface.withOpacity(0.5),
+        ),
+      ),
+    ),
+  ],
+),
         ],
       ),
     );
@@ -386,7 +441,6 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
           final chapterCount = m['chapterCount'] ?? 0;
           final uuid = m['uuid'];
           final comicIntId = m['id'] as int;
-
           if (_comicIntId == null) {
             _comicIntId = comicIntId;
             Future.microtask(() => _loadComments(comicIntId));
@@ -489,14 +543,31 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
               ),
               const SizedBox(height: 24),
 
-              Text(
-                'Chapters: $chapterCount',
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    Text(
+      'Chapters: $chapterCount',
+      style: TextStyle(
+        color: theme.colorScheme.onSurface,
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    TextButton.icon(
+      onPressed: () => setState(() => _sortDescending = !_sortDescending),
+      icon: Icon(
+        _sortDescending ? Icons.arrow_downward : Icons.arrow_upward,
+        size: 16,
+        color: theme.colorScheme.primary,
+      ),
+      label: Text(
+        _sortDescending ? "DSC" : "ASC",
+        style: TextStyle(color: theme.colorScheme.primary, fontSize: 13),
+      ),
+    ),
+  ],
+),
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
@@ -518,14 +589,20 @@ class _ComicDetailPageState extends State<ComicDetailPage> {
                     final displayCount = _expanded
                         ? chapters.length
                         : chapters.length.clamp(0, 5);
+                        final sortedChapters = _sortDescending
+         ? chapters.reversed.toList()
+         : List.from(chapters);
+                  
                     return Column(
+
                       children: [
+                         
                         ListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: displayCount,
                           itemBuilder: (context, index) {
-                            final ch = chapters[index];
+                            final ch = sortedChapters[index];
                             final chapterNo = ch['count'];
 
                             return InkWell(

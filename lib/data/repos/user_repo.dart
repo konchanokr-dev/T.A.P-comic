@@ -114,28 +114,21 @@ Future<void> logout() async {
     await prefs.setString('pw_$uuid', passwordHash); 
   }
 Future<List<User>> searchUser(String keyword) async {
-  final res = await http.post(
-    Uri.parse('${ApiService.baseUrl}/users/search?page=0'),
-    headers: {'Content-Type': 'application/json'},
-    body: jsonEncode({
-      'keyword': keyword,
-    }),
+  final res = await ApiService.post(
+    '/users/search?page=0',
+    {'keyword': keyword},
   );
 
   print("STATUS: ${res.statusCode}");
-  print("BODY: ${res.body}");
+  print("BODY: ${res.body}");  // ดูว่า error อะไร
 
   if (res.statusCode != 200) {
     throw Exception("User search failed");
   }
 
   final data = jsonDecode(res.body);
-
-  List list = data["content"];
-
-  return list.map((e) => User.fromApi(e)).toList();
+  return (data["content"] as List).map((e) => User.fromApi(e)).toList();
 }
-
  Future<List<Comic>> getUserRecentRead(String userUuid, {int limit = 5}) async {
   final res = await ApiService.get('/history/$userUuid');
 debugPrint('📡 recentRead status: ${res.statusCode}'); debugPrint('📡 recentRead body: ${res.body}');

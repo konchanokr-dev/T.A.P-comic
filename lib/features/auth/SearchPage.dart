@@ -8,6 +8,7 @@ import 'package:tapcomic/data/repos/comic_repo.dart';
 import 'package:tapcomic/features/auth/auth_service.dart';
 import 'package:tapcomic/features/auth/comic_detail_page.dart';
 import 'package:tapcomic/features/auth/user_profile_page.dart';
+import 'package:tapcomic/widget/NameAvatar.dart';
 import '../../data/repos/user_repo.dart';
 
 enum SearchType { comic, user }
@@ -59,8 +60,12 @@ Future<void> _loadGenres() async {
           final result = await repo.searchComic(query);
           setState(() => filteredComics = result);
         } else {
-          final result = await userRepo.searchUser(query);
-          setState(() => filteredUsers = result);
+         final result = await userRepo.searchUser(query);
+       final filtered = result
+    .where((u) => u.uuid != AuthService.userUuid)
+    .toList();
+
+setState(() => filteredUsers = filtered);
         }
       } catch (e) {
         debugPrint("Search error: $e");
@@ -248,12 +253,8 @@ Future<void> _loadGenres() async {
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: theme.colorScheme.surface,
-              child: Icon(Icons.person,
-                  color: theme.colorScheme.onSurface.withOpacity(0.5)),
-            ),
+           NameAvatar(name: user.name, radius: 24),
+
             const SizedBox(width: 14),
             Expanded(
               child: Text(

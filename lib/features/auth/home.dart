@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:tapcomic/data/models/comic.dart';
 import 'package:tapcomic/data/repos/comic_repo.dart';
 import 'package:tapcomic/features/auth/auth_service.dart';
+import 'package:tapcomic/features/auth/see_all_page.dart';
 import 'comic_detail_page.dart';
 
 class Home extends StatefulWidget {
@@ -15,11 +16,14 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   final repo = ComicRepo();
   late Future<List<Comic>> newChaptersFuture;
-
+  late Future<List<Comic>> popularChaptersFuture;
+late Future<List<Comic>> followingFuture;
   @override
   void initState() {
     super.initState();
-    newChaptersFuture = repo.fetchNewChapters(limit: 10);
+    newChaptersFuture = repo.fetchNew(limit: 10);
+    popularChaptersFuture = repo.fetchPopular(limit: 10);
+    followingFuture = repo.fetchFollowing();
   }
 
   @override
@@ -36,14 +40,14 @@ class _HomeState extends State<Home> {
               children: [
                 Center(child: Image.asset('assets/icon/fakelogo.png', height: 48)),
                 const SizedBox(height: 24),
-                _buildSectionTitle(context, 'New Chapter'),
-                _buildComicList(context, newChaptersFuture),
-                const SizedBox(height: 24),
-                _buildSectionTitle(context, 'Popular Comics'),
-                _buildComicList(context, newChaptersFuture),
-                const SizedBox(height: 24),
-                _buildSectionTitle(context, 'Recently Updated'),
-                _buildComicList(context, newChaptersFuture),
+                _buildSectionTitle(context, 'Following',  followingFuture),
+_buildComicList(context, followingFuture),
+const SizedBox(height: 24),
+_buildSectionTitle(context, 'Popular Comics', popularChaptersFuture),
+_buildComicList(context, popularChaptersFuture),
+const SizedBox(height: 24),
+_buildSectionTitle(context, 'New Chapter', newChaptersFuture),
+_buildComicList(context, newChaptersFuture),
               ],
             ),
           ),
@@ -52,20 +56,25 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _buildSectionTitle(BuildContext context, String title) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title,
-              style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold)),
-          TextButton(onPressed: () {}, child:  Text('See All' , style: TextStyle(color: Colors.green),) ,),
-        ],
-      ),
-    );
-  }
+ Widget _buildSectionTitle(BuildContext context, String title, Future<List<Comic>> future) {
+  final theme = Theme.of(context);
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold)),
+        TextButton(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => SeeAllPage(title: title, future: future)),
+          ),
+          child: const Text('See All', style: TextStyle(color: Colors.green)),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildComicList(BuildContext context, Future<List<Comic>> future) {
     final theme = Theme.of(context);

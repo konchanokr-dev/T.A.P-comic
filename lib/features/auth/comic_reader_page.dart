@@ -9,6 +9,7 @@ import 'package:tapcomic/data/repos/vote_repo.dart';
 import 'package:tapcomic/features/auth/readersetting/readerstyle_setting.dart';
 import 'package:tapcomic/features/auth/reply.dart';
 import 'package:tapcomic/features/auth/report_sheet.dart';
+import 'package:tapcomic/widget/NameAvatar.dart';
 import '../../core/app_settings.dart';
 import '../../core/app_setting_scope.dart';
 import 'package:tapcomic/data/models/page_model.dart';
@@ -72,7 +73,7 @@ final TextEditingController _commentController = TextEditingController();
   int _currentDislikeCount = 0;
   bool? _currentVoteStatus;
   Timer? _saveTimer;
-  
+  String _currentUserName = "";
 Map<String, String> userMap = {};
 @override
 void initState() {
@@ -83,16 +84,18 @@ void initState() {
   _episodeId = widget.episodeId;
   _scrollController = ScrollController();
   _scrollController.addListener(_onVerticalScroll);
-
   _init(); 
 }Future<void> _init() async {
   final prefs = await SharedPreferences.getInstance();
   _token = prefs.getString("accessToken");
+  _currentUserName = prefs.getString('userName') ?? "";
+
 _refreshVoteStatus();
  final progress = await _historyRepo.getComicProgress(widget.comicId);
 if (progress != null) {
   print("🎬 ประวัติจากเซิร์ฟเวอร์: Chapter ${progress.chapterId}, Page ${progress.pageNumber}");
-  
+      debugPrint("currentuser name is" + _currentUserName);
+
   if (progress.chapterId == widget.episodeId) {
     setState(() {
       _initialPage = progress.pageNumber; 
@@ -323,7 +326,7 @@ Positioned(
         ),
         IconButton(
           icon: const Icon(Icons.menu, color: Colors.white),
-          onPressed: () {
+          onPressed: () {  _openChapterSelect(context);
           },
         ),
         IconButton(
@@ -357,10 +360,87 @@ Positioned(
     ),
   );
 }
+void _openChapterSelect(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: const Color(0xFF1A1A1A),
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => DraggableScrollableSheet(
+      initialChildSize: 0.5,
+      minChildSize: 0.3,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (_, scrollController) => Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            "เลือกตอน",
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              controller: scrollController,
+              itemCount: widget.totalChapters,
+              itemBuilder: (_, index) {
+                final chapterNo = index + 1;
+                final isCurrent = chapterNo == widget.episodeNo;
+                return ListTile(
+                  title: Text(
+                    "Chapter $chapterNo",
+                    style: TextStyle(
+                      color: isCurrent ? Theme.of(context).colorScheme.primary : Colors.white,
+                      fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  trailing: isCurrent
+                      ? Icon(Icons.play_arrow, color: Theme.of(context).colorScheme.primary)
+                      : null,
+                  onTap: () async {
+                    Navigator.pop(context);
+                    if (isCurrent) return;
+                    await _saveProgress();
+                    if (!mounted) return;
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ComicReaderPage(
+                          uuid: widget.uuid,
+                          comicIntId: widget.comicIntId,
+                          episodeTitle: 'Chapter $chapterNo',
+                          episodeNo: chapterNo,
+                          userUuid: widget.userUuid,
+                          comicId: widget.comicId,
+                          episodeId: chapterNo,
+                          totalChapters: widget.totalChapters,
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 Future<void> _goToNextEpisode() async {
   if (widget.episodeNo >= widget.totalChapters) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('ไม่มีตอนถัดไป')),
+      const SnackBar(content: Text('Dont have next chapter')),
     );
     return;
   }
@@ -425,8 +505,10 @@ Future<void> _goToPreviousEpisode() async {
         return _horizontal(_pages);
       case ReaderMode.tap:
         return _tap(_pages);
+      case ReaderMode.tapUD:
+        return _tapUD(_pages);
     }
-  }Widget _buildImage(String url, {bool isVertical = false}) {
+  }Widget _buildImage(String url, {bool fitContain = false}) {
   final screenWidth = MediaQuery.of(context).size.width;
   final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
 
@@ -447,8 +529,8 @@ Future<void> _goToPreviousEpisode() async {
           },
 
     memCacheWidth: (screenWidth * devicePixelRatio * 0.7).round(),
-    width: maxWidth,
-    fit: BoxFit.fitWidth,
+    width: fitContain ? null : maxWidth,
+fit: fitContain ? BoxFit.contain : BoxFit.fitWidth,
     fadeInDuration: Duration.zero,
     fadeOutDuration: Duration.zero,
     filterQuality: FilterQuality.low,
@@ -493,7 +575,7 @@ Widget _vertical(List<PageModel> pages) {
       if (i < pages.length) {
         return RepaintBoundary(
           key: ValueKey(pages[i].pageUrl),
-          child: _buildImage(pages[i].pageUrl, isVertical: true),
+          child: _buildImage(pages[i].pageUrl,),
         );
       }
 
@@ -531,7 +613,7 @@ Widget _horizontal(List<PageModel> pages) {
 
       if (i < pages.length) {
         return SizedBox.expand(
-          child: _buildImage(pages[i].pageUrl),
+          child: _buildImage(pages[i].pageUrl,fitContain: true),
         );
       }
 return SingleChildScrollView(
@@ -587,7 +669,68 @@ return SingleChildScrollView(
 
         if (i < pages.length) {
           return Center(
-  child: _buildImage(pages[i].pageUrl),
+  child: _buildImage(pages[i].pageUrl,fitContain: true),
+);
+        }
+
+    
+return SingleChildScrollView(
+  child: ConstrainedBox(
+    constraints: BoxConstraints(
+      minHeight: MediaQuery.of(context).size.height, 
+    ),
+    child: Padding(
+      padding: const EdgeInsets.only(top: 60), 
+       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _voteSection(widget.episodeId), // แสดง vote section ก่อน
+          SizedBox(height: 8),    // เว้นระยะห่าง
+          _commentSection(),       // ตามด้วย comment section
+        ],
+      ),
+    ),
+  ),
+);
+      },
+    ),
+  );
+}
+Widget _tapUD(List<PageModel> pages) {
+  return GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTapUp: (details) {
+      final height = MediaQuery.of(context).size.height;
+      final dx = details.globalPosition.dy;
+
+      if (dx < height * 0.33) {
+        _prevPage();
+      } else if (dx > height * 0.66) {
+        _nextPage();
+      } else {
+        _toggleMenu();
+      }
+    },
+    child: PageView.builder(
+      scrollDirection: Axis.vertical,
+      controller: _pageController,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: pages.length + 1,
+    onPageChanged: (i) {
+  _pageIndex = i; 
+  
+  _saveTimer?.cancel();
+  _saveTimer = Timer(const Duration(seconds: 2), _saveProgress);
+
+  if (i < _pages.length) {
+    _preloadAround(i);
+  }
+},
+      itemBuilder: (_, i) {
+
+        if (i < pages.length) {
+          return Center(
+  child: _buildImage(pages[i].pageUrl,fitContain: true),
 );
         }
 
@@ -677,10 +820,8 @@ Widget _commentSection() {
 
         Row(
           children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
-            ),
+         NameAvatar(name: _currentUserName, radius: 18),
+
             const SizedBox(width: 10),
 
             Expanded(
@@ -742,10 +883,8 @@ Widget _commentItem(CommentModel c) {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: theme.colorScheme.onSurface.withOpacity(0.15),
-              ),
+            NameAvatar(name: c.user?.name ?? 'user', radius: 18),
+
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -790,30 +929,75 @@ Widget _commentItem(CommentModel c) {
             ],
           ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.thumb_up_alt_outlined,
-                    color: theme.colorScheme.onSurface.withOpacity(0.5),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    "0",
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.5),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Icon(
-                    Icons.thumb_down_alt_outlined,
-                    color: theme.colorScheme.onSurface.withOpacity(0.5),
-                    size: 18,
-                  ),
-                ],
-              ),
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    Row(
+      children: [
+        GestureDetector(
+          onTap: () async {
+            try {
+              await _commentRepo.voteComment(
+                commentId: c.id,
+                vote: true,
+              );
+              await _loadComments();
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Please login first")),
+              );
+            }
+          },
+          child: Icon(
+            c.currentUserVote == true
+                ? Icons.thumb_up_alt
+                : Icons.thumb_up_alt_outlined,
+            color: c.currentUserVote == true
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurface.withOpacity(0.5),
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          "${c.likeCount}",
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withOpacity(0.5),
+          ),
+        ),
+        const SizedBox(width: 16),
+        GestureDetector(
+          onTap: () async {
+            try {
+              await _commentRepo.voteComment(
+                commentId: c.id,
+                vote: false,
+              );
+              await _loadComments();
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Please login first")),
+              );
+            }
+          },
+          child: Icon(
+            c.currentUserVote == false
+                ? Icons.thumb_down_alt
+                : Icons.thumb_down_alt_outlined,
+            color: c.currentUserVote == false
+                ? Colors.red
+                : theme.colorScheme.onSurface.withOpacity(0.5),
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          "${c.dislikeCount}",
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withOpacity(0.5),
+          ),
+        ),
+      ],
+    ),
               TextButton.icon(
                 onPressed: () => _openReplyThread(c),
                 icon: Icon(
@@ -930,7 +1114,7 @@ void _openPageComments() {
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (_) => PageCommentSheet(
-      pageId: currentPage.pageNumber,       
+      pageId: currentPage.pageId,       
       pageNo: _pageIndex + 1,
       userUuid: widget.userUuid,
       comicIntId: widget.comicIntId,
@@ -941,43 +1125,108 @@ void _openPageComments() {
 //vote devote chapter
 Widget _voteSection(int chapterId) {
   final theme = Theme.of(context);
-  return Row(
+  return  Column(
     children: [
-      IconButton(
-        onPressed: () async {
-          await _voteRepo.voteChapter(chapterId, true);
-          // เมื่อโหวตสำเร็จ (POST 200) ให้โหลด List ใหม่เพื่ออัปเดต Counts
-          await _refreshVoteStatus(); 
-        },
-        icon: Icon(
-          Icons.thumb_up_alt_outlined,
-          // อ้างอิงจากสถานะที่ถูกรีเฟรชแล้ว
-          color: _currentVoteStatus == true
-              ? theme.colorScheme.primary
-              : theme.colorScheme.onSurface.withOpacity(0.5),
+      // ── Header Text ──
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Text(
+          "How do you feel about this chapter?",
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withOpacity(0.8),
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
-      // *** แสดง Like Count ***
-      Text("$_currentLikeCount", style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7))),
+       Row(
+    children: [
+      // ── ฝั่ง Like ──────────────────────────
+      Expanded(
+        child: InkWell(
+          onTap: () async {
+            await _voteRepo.voteChapter(chapterId, true);
+            await _refreshVoteStatus();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            decoration: BoxDecoration(
+              color: _currentVoteStatus == true
+                  ? theme.colorScheme.primary.withOpacity(0.15)
+                  : Colors.transparent,
+              border: Border(
+                right: BorderSide(color: Colors.white12, width: 1),
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.thumb_up_alt_outlined,
+                  color: _currentVoteStatus == true
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurface.withOpacity(0.5),
+                  size: 28,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  "$_currentLikeCount",
+                  style: TextStyle(
+                    color: _currentVoteStatus == true
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withOpacity(0.6),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
 
-      const SizedBox(width: 15),
-      
-      IconButton(
-        onPressed: () async {
-          await _voteRepo.voteChapter(chapterId, false);
-          // เมื่อโหวตสำเร็จ (POST 200) ให้โหลด List ใหม่เพื่ออัปเดต Counts
-          await _refreshVoteStatus(); 
-        },
-        icon: Icon(
-          Icons.thumb_down_alt_outlined,
-          color: _currentVoteStatus == false
-              ? Colors.redAccent
-              : theme.colorScheme.onSurface.withOpacity(0.5),
+      // ── ฝั่ง Dislike ────────────────────────
+      Expanded(
+        child: InkWell(
+          onTap: () async {
+            await _voteRepo.voteChapter(chapterId, false);
+            await _refreshVoteStatus();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            decoration: BoxDecoration(
+              color: _currentVoteStatus == false
+                  ? Colors.redAccent.withOpacity(0.15)
+                  : Colors.transparent,
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.thumb_down_alt_outlined,
+                  color: _currentVoteStatus == false
+                      ? Colors.redAccent
+                      : theme.colorScheme.onSurface.withOpacity(0.5),
+                  size: 28,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  "$_currentDislikeCount",
+                  style: TextStyle(
+                    color: _currentVoteStatus == false
+                        ? Colors.redAccent
+                        : theme.colorScheme.onSurface.withOpacity(0.6),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-      // *** แสดง Dislike Count ***
-      Text("$_currentDislikeCount", style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7))),
     ],
+       ),
+    ],
+  
   );
 }
 
@@ -997,7 +1246,7 @@ Future<void> _refreshVoteStatus() async {
           (chapter) => chapter['id'] == chapterId,
           orElse: () => null,
         );
-
+        
         if (targetChapter != null) {
             if (!mounted) return;
             setState(() {

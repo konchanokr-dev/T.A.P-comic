@@ -5,6 +5,7 @@ import 'package:tapcomic/data/models/user.dart';
 import 'package:tapcomic/data/repos/user_repo.dart';
 import 'package:tapcomic/features/auth/auth_service.dart';
 import 'package:tapcomic/features/auth/comic_detail_page.dart';
+import 'package:tapcomic/widget/NameAvatar.dart';
 
 class UserProfilePage extends StatefulWidget {
   final User user;
@@ -52,13 +53,8 @@ bool _loadingAdd = false;
               Center(
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 44,
-                      backgroundColor: theme.colorScheme.surface,
-                      child: Icon(Icons.person,
-                          size: 48,
-                          color: theme.colorScheme.onSurface.withOpacity(0.5)),
-                    ),
+                   NameAvatar(name: widget.user.name, radius: 44),
+
                     const SizedBox(height: 12),
                     Text(
                       widget.user.name,
@@ -144,7 +140,7 @@ else
 
     final comics = snapshot.data ?? [];
     if (comics.isEmpty) {
-      return _emptyState(context, 'ยังไม่มีการติดตาม');
+      return _emptyState(context, 'This user not follow any comic');
     }
 
     return SizedBox(

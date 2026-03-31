@@ -4,6 +4,7 @@ enum ReaderMode {
   vertical,
   horizontal,
   tap,
+  tapUD,
 }
 
 class AppSettings extends ChangeNotifier {

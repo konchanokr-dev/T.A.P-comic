@@ -110,8 +110,18 @@ _buildComicList(context, newChaptersFuture),
     final theme = Theme.of(context);
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => ComicDetailPage(comicId: c.uuid))),
+      onTap: () async {
+  await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ComicDetailPage(comicId: c.uuid),
+    ),
+  );
+
+  setState(() {
+    followingFuture = repo.fetchFollowing();
+  });
+},
       child: Container(
         width: 150,
         margin: const EdgeInsets.only(right: 12),
